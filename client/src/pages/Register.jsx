@@ -9,8 +9,11 @@ import {
     Button,
     Paper,
     Alert,
-    Link
+    Link,
+    Fade,
+    Slide
 } from '@mui/material';
+import { School, CheckCircle } from '@mui/icons-material';
 
 const Register = () => {
     const [formData, setFormData] = useState({
@@ -23,6 +26,7 @@ const Register = () => {
     const [isStudent, setIsStudent] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -37,12 +41,15 @@ const Register = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setIsLoading(true);
 
         if (formData.password !== formData.confirmPassword) {
+            setIsLoading(false);
             return setError('Passwords do not match');
         }
 
         if (!formData.email.endsWith('@iitrpr.ac.in')) {
+            setIsLoading(false);
             return setError('Only @iitrpr.ac.in emails are allowed');
         }
 
@@ -59,29 +66,54 @@ const Register = () => {
             setSuccess(true);
         } catch (err) {
             setError(err.response?.data?.msg || 'Registration Failed');
+        } finally {
+            setIsLoading(false);
         }
     };
 
     if (success) {
         return (
             <Container component="main" maxWidth="xs">
-                <Box sx={{ marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <Paper elevation={6} sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', borderRadius: 2 }}>
-                        <Typography component="h1" variant="h5" color="primary" gutterBottom>
-                            Registration Successful!
-                        </Typography>
-                        <Typography variant="body1" align="center" sx={{ mb: 3 }}>
-                            You can now login with your credentials.
-                        </Typography>
-                        <Button
-                            component={RouterLink}
-                            to="/login"
-                            variant="contained"
-                            fullWidth
+                <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <Fade in={true} timeout={800}>
+                        <Paper 
+                            elevation={24} 
+                            className="glass-paper"
+                            sx={{ 
+                                p: 5, 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                alignItems: 'center', 
+                                borderRadius: 4,
+                                textAlign: 'center',
+                            }}
                         >
-                            Go to Login
-                        </Button>
-                    </Paper>
+                            <CheckCircle sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
+                            <Typography component="h1" variant="h4" fontWeight="bold" color="success.main" gutterBottom>
+                                Registration Successful!
+                            </Typography>
+                            <Typography variant="body1" color="textSecondary" sx={{ mb: 4 }}>
+                                Your account has been created. You can now login with your credentials.
+                            </Typography>
+                            <Button
+                                component={RouterLink}
+                                to="/login"
+                                variant="contained"
+                                size="large"
+                                fullWidth
+                                sx={{ 
+                                    py: 1.8,
+                                    fontWeight: 'bold',
+                                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                    '&:hover': {
+                                        background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                                    },
+                                }}
+                            >
+                                Go to Login
+                            </Button>
+                        </Paper>
+                    </Fade>
                 </Box>
             </Container>
         );
@@ -91,29 +123,42 @@ const Register = () => {
         <Container component="main" maxWidth="xs">
             <Box
                 sx={{
-                    marginTop: 8,
+                    minHeight: '100vh',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
+                    justifyContent: 'center',
+                    py: 4,
                 }}
             >
-                <Paper
-                    elevation={6}
-                    sx={{
-                        p: 4,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        borderRadius: 2,
-                        background: 'rgba(255, 255, 255, 0.8)',
-                    }}
-                >
-                    <Typography component="h1" variant="h5" gutterBottom fontWeight="bold">
-                        Create Account
-                    </Typography>
-                    <Typography component="p" variant="subtitle1" color="textSecondary" gutterBottom>
-                        Join AIMS today
-                    </Typography>
+                <Fade in={true} timeout={800}>
+                    <Paper
+                        elevation={24}
+                        className="glass-paper"
+                        sx={{
+                            p: 5,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            borderRadius: 4,
+                            background: 'rgba(255, 255, 255, 0.95)',
+                            backdropFilter: 'blur(20px)',
+                            border: '1px solid rgba(255, 255, 255, 0.3)',
+                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                            width: '100%',
+                        }}
+                    >
+                        <Slide direction="down" in={true} timeout={600}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                <School sx={{ fontSize: 36, color: 'primary.main', mr: 1 }} />
+                                <Typography component="h1" variant="h4" fontWeight="bold" className="gradient-text">
+                                    Create Account
+                                </Typography>
+                            </Box>
+                        </Slide>
+                        <Typography component="p" variant="subtitle1" color="textSecondary" gutterBottom sx={{ mb: 3 }}>
+                            Join AIMS today
+                        </Typography>
 
                     <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3, width: '100%' }}>
                         <TextField
@@ -174,24 +219,58 @@ const Register = () => {
                             onChange={handleChange}
                         />
 
-                        {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+                        {error && (
+                            <Fade in={true}>
+                                <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
+                            </Fade>
+                        )}
 
                         <Button
                             type="submit"
                             fullWidth
                             variant="contained"
-                            sx={{ mt: 3, mb: 2, py: 1.5 }}
+                            disabled={isLoading}
+                            sx={{ 
+                                mt: 3, 
+                                mb: 2, 
+                                py: 1.8,
+                                fontWeight: 'bold',
+                                fontSize: '1rem',
+                                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                '&:hover': {
+                                    background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                                },
+                            }}
                         >
-                            Sign Up
+                            {isLoading ? (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <div className="loading-spinner" style={{ width: 20, height: 20, borderWidth: 3 }} />
+                                    <span>Creating account...</span>
+                                </Box>
+                            ) : (
+                                'Sign Up'
+                            )}
                         </Button>
 
                         <Box textAlign="center">
-                            <Link component={RouterLink} to="/login" variant="body2">
-                                {"Already have an account? Login here"}
+                            <Link 
+                                component={RouterLink} 
+                                to="/login" 
+                                variant="body2"
+                                sx={{ 
+                                    fontWeight: 500,
+                                    '&:hover': { 
+                                        color: 'primary.dark',
+                                        textDecoration: 'underline',
+                                    } 
+                                }}
+                            >
+                                Already have an account? Login here
                             </Link>
                         </Box>
                     </Box>
                 </Paper>
+                </Fade>
             </Box>
         </Container>
     );

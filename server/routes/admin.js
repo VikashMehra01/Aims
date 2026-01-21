@@ -58,4 +58,30 @@ router.put('/users/:id/role', adminAuth, async (req, res) => {
     }
 });
 
+// @route   PUT /api/admin/users/:id
+// @desc    Update user details (Admin only)
+// @access  Admin
+router.put('/users/:id', adminAuth, async (req, res) => {
+    try {
+        const { name, email, role, department, rollNumber } = req.body;
+        const user = await User.findById(req.params.id);
+
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        if (name) user.name = name;
+        if (email) user.email = email;
+        if (role) user.role = role;
+        if (department) user.department = department;
+        if (rollNumber) user.rollNumber = rollNumber;
+
+        await user.save();
+        res.json(user);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 module.exports = router;

@@ -105,7 +105,10 @@ router.post('/register', auth, checkRole(['student']), async (req, res) => {
 router.get('/my-registrations', auth, async (req, res) => {
     try {
         const registrations = await CourseRegistration.find({ student: req.user.id })
-            .populate('course')
+            .populate({
+                path: 'course',
+                populate: { path: 'instructor', select: 'name' }
+            })
             .populate('student', 'name rollNumber');
         res.json(registrations);
     } catch (err) {
@@ -130,6 +133,45 @@ router.get('/instructor/pending', auth, checkRole(['instructor', 'faculty_adviso
 
         res.json(pending);
     } catch (err) {
+        res.status(500).send('Server Error');
+    }
+
+});
+
+// @route   GET /api/courses/:courseId/registrations
+// @desc    Get all registrations for a specific course (for the instructor)
+// @access  Instructor
+router.get('/:courseId/registrations', auth, checkRole(['instructor', 'faculty_advisor', 'student']), async (req, res) => {
+    try {
+        console.log('GET /:courseId/registrations request');
+        console.log('Params:', req.params);
+        console.log('User:', req.user.id);
+        
+        const course = await Course.findById(req.params.courseId);
+        if (!course) {
+            console.log('Course not found');
+            return res.status(404).json({ msg: 'Course not found' });
+        }
+        console.log('Course Instructor:', course.instructor);
+
+        // Verify permissions
+        // Instructors can only see their own courses
+        if (req.user.role === 'instructor' && course.instructor.toString() !== req.user.id) {
+            return res.status(403).json({ msg: 'Not authorized to view this course registrations' });
+        }
+        // Students can see registrations for courses they are exploring or enrolled in (open for now based on requirement)
+
+
+        const registrations = await CourseRegistration.find({ course: req.params.courseId })
+            .populate('student', 'name rollNumber email department')
+            .sort({ 'student.rollNumber': 1 }); // Sort by roll number
+
+        res.json(registrations);
+    } catch (err) {
+        console.error(err.message);
+        if (err.kind === 'ObjectId') {
+            return res.status(404).json({ msg: 'Course not found' });
+        }
         res.status(500).send('Server Error');
     }
 });
@@ -199,5 +241,51 @@ router.put('/fa/approve/:id', auth, checkRole(['faculty_advisor']), async (req, 
     }
 });
 
+
+// @route   PUT /api/courses/:id
+// @desc    Update a course (Admin only)
+// @access  Admin
+router.put('/:id', auth, checkRole(['admin']), async (req, res) => {
+    try {
+        const { code, title, department, credits, semester, year, instructor } = req.body;
+        
+        // Find and update
+        const course = await Course.findById(req.params.id);
+        if (!course) return res.status(404).json({ msg: 'Course not found' });
+
+        if (code) course.code = code;
+        if (title) course.title = title;
+        if (department) course.department = department;
+        if (credits) course.credits = credits;
+        if (semester) course.semester = semester;
+        if (year) course.year = year;
+        if (instructor) course.instructor = instructor;
+
+        await course.save();
+        res.json(course);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   DELETE /api/courses/:id
+// @desc    Delete a course (Admin only)
+// @access  Admin
+router.delete('/:id', auth, checkRole(['admin']), async (req, res) => {
+    try {
+        // First delete all registrations for this course
+        await CourseRegistration.deleteMany({ course: req.params.id });
+        
+        // Then delete the course
+        const result = await Course.findByIdAndDelete(req.params.id);
+        if (!result) return res.status(404).json({ msg: 'Course not found' });
+
+        res.json({ msg: 'Course removed' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
 
 module.exports = router;

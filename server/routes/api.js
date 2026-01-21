@@ -61,7 +61,21 @@ router.get('/feedback/active', auth, async (req, res) => {
     try {
         // Mock logic: randomly return active or return based on a query
         // In real app, this would check dates or admin settings
-        res.json({ active: true, type: 'Mid-sem', semester: 'Sem-1, 2024-25' });
+        res.json({ active: true, type: 'Mid-Semester', semester: 'Sem-1, 2024-25' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// Get All Feedback (Admin)
+router.get('/feedback', auth, async (req, res) => {
+    try {
+        const feedback = await Feedback.find()
+            .populate('student', 'name email rollNumber')
+            .populate('courseId', 'code title')
+            .sort({ createdAt: -1 });
+        res.json(feedback);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
