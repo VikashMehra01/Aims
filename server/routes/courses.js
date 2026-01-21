@@ -1,0 +1,203 @@
+const express = require('express');
+const router = express.Router();
+const jwt = require('jsonwebtoken');
+const Course = require('../models/Course');
+const CourseRegistration = require('../models/CourseRegistration');
+const User = require('../models/User');
+
+// Middleware to verify JWT
+const auth = (req, res, next) => {
+    const token = req.header('x-auth-token');
+    if (!token) return res.status(401).json({ msg: 'No token, authorization denied' });
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+        req.user = decoded.user;
+        next();
+    } catch (err) {
+        res.status(401).json({ msg: 'Token is not valid' });
+    }
+};
+
+// Middleware to check role
+const checkRole = (roles) => async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!roles.includes(user.role)) {
+            return res.status(403).json({ msg: 'Access denied' });
+        }
+        next();
+    } catch (err) {
+        res.status(500).send('Server Error');
+    }
+};
+
+// @route   GET /api/courses
+// @desc    Get all available courses
+// @access  Private
+router.get('/', auth, async (req, res) => {
+    try {
+        const courses = await Course.find().populate('instructor', 'name');
+        res.json(courses);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   POST /api/courses/float
+// @desc    Float a new course
+// @access  Instructor only
+router.post('/float', auth, checkRole(['instructor', 'faculty_advisor']), async (req, res) => {
+    try {
+        const { code, title, department, credits, semester, year } = req.body;
+
+        const newCourse = new Course({
+            code,
+            title,
+            department,
+            instructor: req.user.id,
+            credits,
+            semester,
+            year
+        });
+
+        const course = await newCourse.save();
+        res.json(course);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   POST /api/courses/register
+// @desc    Student registers for a course
+// @access  Student
+router.post('/register', auth, checkRole(['student']), async (req, res) => {
+    try {
+        const { courseId, type } = req.body;
+
+        const alreadyRegistered = await CourseRegistration.findOne({
+            student: req.user.id,
+            course: courseId
+        });
+
+        if (alreadyRegistered) {
+            return res.status(400).json({ msg: 'Already registered for this course' });
+        }
+
+        const registration = new CourseRegistration({
+            student: req.user.id,
+            course: courseId,
+            type
+        });
+
+        await registration.save();
+        res.json(registration);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   GET /api/courses/my-registrations
+// @desc    Get student's registrations
+// @access  Student
+router.get('/my-registrations', auth, async (req, res) => {
+    try {
+        const registrations = await CourseRegistration.find({ student: req.user.id })
+            .populate('course')
+            .populate('student', 'name rollNumber');
+        res.json(registrations);
+    } catch (err) {
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   GET /api/courses/instructor/pending
+// @desc    Get pending registrations for instructor's courses
+// @access  Instructor
+router.get('/instructor/pending', auth, checkRole(['instructor', 'faculty_advisor']), async (req, res) => {
+    try {
+        // Find courses taught by this instructor
+        const myCourses = await Course.find({ instructor: req.user.id });
+        const courseIds = myCourses.map(c => c._id);
+
+        // Find pending registrations for these courses
+        const pending = await CourseRegistration.find({
+            course: { $in: courseIds },
+            status: 'Pending_Instructor'
+        }).populate('student', 'name rollNumber').populate('course', 'code title');
+
+        res.json(pending);
+    } catch (err) {
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   PUT /api/courses/instructor/approve/:id
+// @desc    Instructor approves/rejects registration
+// @access  Instructor
+router.put('/instructor/approve/:id', auth, checkRole(['instructor', 'faculty_advisor']), async (req, res) => {
+    try {
+        const { action } = req.body; // 'approve' or 'reject'
+        const registration = await CourseRegistration.findById(req.params.id);
+
+        if (!registration) return res.status(404).json({ msg: 'Registration not found' });
+
+        if (action === 'approve') {
+            registration.status = 'Pending_FA'; // Move to FA approval
+            registration.approvedByInstructor = true;
+        } else {
+            registration.status = 'Rejected';
+        }
+
+        await registration.save();
+        res.json(registration);
+    } catch (err) {
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   GET /api/courses/fa/pending
+// @desc    Get pending registrations for FA
+// @access  Faculty Advisor
+router.get('/fa/pending', auth, checkRole(['faculty_advisor']), async (req, res) => {
+    try {
+        // In real app, we'd filter by students assigned to this FA. 
+        // For now, we'll fetch ALL 'Pending_FA' requests.
+        const pending = await CourseRegistration.find({
+            status: 'Pending_FA'
+        }).populate('student', 'name rollNumber').populate('course', 'code title');
+
+        res.json(pending);
+    } catch (err) {
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   PUT /api/courses/fa/approve/:id
+// @desc    FA approves/rejects registration
+// @access  Faculty Advisor
+router.put('/fa/approve/:id', auth, checkRole(['faculty_advisor']), async (req, res) => {
+    try {
+        const { action } = req.body; // 'approve' or 'reject'
+        const registration = await CourseRegistration.findById(req.params.id);
+
+        if (!registration) return res.status(404).json({ msg: 'Registration not found' });
+
+        if (action === 'approve') {
+            registration.status = 'Approved';
+            registration.approvedByFA = true;
+        } else {
+            registration.status = 'Rejected';
+        }
+
+        await registration.save();
+        res.json(registration);
+    } catch (err) {
+        res.status(500).send('Server Error');
+    }
+});
+
+
+module.exports = router;
