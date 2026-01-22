@@ -133,8 +133,6 @@ const StudentDashboard = () => {
     const filteredCourses = courses.filter(course => {
         // Exclude past years (e.g., 2025 and earlier) from Enrollment options
         // Assuming current academic cycle starts 2026.
-        if (parseInt(course.year) < 2026) return false;
-
         return (
             (filters.department === '' || course.department.toLowerCase().includes(filters.department.toLowerCase())) &&
             (filters.code === '' || course.code.toLowerCase().includes(filters.code.toLowerCase())) &&

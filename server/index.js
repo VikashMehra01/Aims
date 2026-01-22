@@ -39,6 +39,7 @@ const connectDB = async () => {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('MongoDB Connected');
   } catch (err) {
+    console.error('Check Connection Error:', err.message); // Log the actual error
     console.log('Failed to connect to local MongoDB. Trying In-Memory Database...');
     try {
       const mongod = await MongoMemoryServer.create();
