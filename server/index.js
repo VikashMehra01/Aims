@@ -5,6 +5,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const cors = require('cors');
 const passport = require('passport');
 const session = require('express-session');
+const cookieParser = require('cookie-parser');
 
 const app = express();
 
@@ -12,8 +13,12 @@ const app = express();
 require('./passport')(passport);
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:5174'], // Allow both common Vite ports
+  credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 // 🔹 SESSION MIDDLEWARE (MUST come before passport.session)
 app.use(

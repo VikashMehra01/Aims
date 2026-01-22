@@ -11,7 +11,9 @@ import {
     Alert,
     Link,
     Fade,
-    Slide
+    Slide,
+    Checkbox,
+    FormControlLabel
 } from '@mui/material';
 import { School, CheckCircle } from '@mui/icons-material';
 
@@ -24,6 +26,7 @@ const Register = () => {
         confirmPassword: ''
     });
     const [isStudent, setIsStudent] = useState(true);
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -77,14 +80,14 @@ const Register = () => {
             <Container component="main" maxWidth="xs">
                 <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                     <Fade in={true} timeout={800}>
-                        <Paper 
-                            elevation={24} 
+                        <Paper
+                            elevation={24}
                             className="glass-paper"
-                            sx={{ 
-                                p: 5, 
-                                display: 'flex', 
-                                flexDirection: 'column', 
-                                alignItems: 'center', 
+                            sx={{
+                                p: 5,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
                                 borderRadius: 4,
                                 textAlign: 'center',
                             }}
@@ -102,7 +105,7 @@ const Register = () => {
                                 variant="contained"
                                 size="large"
                                 fullWidth
-                                sx={{ 
+                                sx={{
                                     py: 1.8,
                                     fontWeight: 'bold',
                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
@@ -161,116 +164,128 @@ const Register = () => {
                             Join AIMS today
                         </Typography>
 
-                    <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3, width: '100%' }}>
-                        <TextField
-                            margin="normal"
-                            required
-                            fullWidth
-                            id="name"
-                            label="Full Name"
-                            name="name"
-                            autoComplete="name"
-                            autoFocus
-                            value={formData.name}
-                            onChange={handleChange}
-                        />
-                        {isStudent && (
+                        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3, width: '100%' }}>
                             <TextField
                                 margin="normal"
                                 required
                                 fullWidth
-                                id="rollNumber"
-                                label="Entry No."
-                                name="rollNumber"
-                                value={formData.rollNumber}
+                                id="name"
+                                label="Full Name"
+                                name="name"
+                                autoComplete="name"
+                                autoFocus
+                                value={formData.name}
                                 onChange={handleChange}
                             />
-                        )}
-                        <TextField
-                            margin="normal"
-                            required
-                            fullWidth
-                            id="email"
-                            label="Email Address"
-                            name="email"
-                            autoComplete="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                        />
-                        <TextField
-                            margin="normal"
-                            required
-                            fullWidth
-                            name="password"
-                            label="Password"
-                            type="password"
-                            id="password"
-                            value={formData.password}
-                            onChange={handleChange}
-                        />
-                        <TextField
-                            margin="normal"
-                            required
-                            fullWidth
-                            name="confirmPassword"
-                            label="Confirm Password"
-                            type="password"
-                            id="confirmPassword"
-                            value={formData.confirmPassword}
-                            onChange={handleChange}
-                        />
-
-                        {error && (
-                            <Fade in={true}>
-                                <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
-                            </Fade>
-                        )}
-
-                        <Button
-                            type="submit"
-                            fullWidth
-                            variant="contained"
-                            disabled={isLoading}
-                            sx={{ 
-                                mt: 3, 
-                                mb: 2, 
-                                py: 1.8,
-                                fontWeight: 'bold',
-                                fontSize: '1rem',
-                                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                '&:hover': {
-                                    background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-                                },
-                            }}
-                        >
-                            {isLoading ? (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <div className="loading-spinner" style={{ width: 20, height: 20, borderWidth: 3 }} />
-                                    <span>Creating account...</span>
-                                </Box>
-                            ) : (
-                                'Sign Up'
+                            {isStudent && (
+                                <TextField
+                                    margin="normal"
+                                    required
+                                    fullWidth
+                                    id="rollNumber"
+                                    label="Entry No."
+                                    name="rollNumber"
+                                    value={formData.rollNumber}
+                                    onChange={handleChange}
+                                />
                             )}
-                        </Button>
+                            <TextField
+                                margin="normal"
+                                required
+                                fullWidth
+                                id="email"
+                                label="Email Address"
+                                name="email"
+                                autoComplete="email"
+                                value={formData.email}
+                                onChange={handleChange}
+                            />
+                            <TextField
+                                margin="normal"
+                                required
+                                fullWidth
+                                name="password"
+                                label="Password"
+                                type={showPassword ? "text" : "password"}
+                                id="password"
+                                value={formData.password}
+                                onChange={handleChange}
+                            />
+                            <TextField
+                                margin="normal"
+                                required
+                                fullWidth
+                                name="confirmPassword"
+                                label="Confirm Password"
+                                type={showPassword ? "text" : "password"}
+                                id="confirmPassword"
+                                value={formData.confirmPassword}
+                                onChange={handleChange}
+                            />
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={showPassword}
+                                        onChange={(e) => setShowPassword(e.target.checked)}
+                                        color="primary"
+                                        size="small"
+                                    />
+                                }
+                                label={<Typography variant="body2">Show Password</Typography>}
+                                sx={{ mb: 1, display: 'block' }}
+                            />
 
-                        <Box textAlign="center">
-                            <Link 
-                                component={RouterLink} 
-                                to="/login" 
-                                variant="body2"
-                                sx={{ 
-                                    fontWeight: 500,
-                                    '&:hover': { 
-                                        color: 'primary.dark',
-                                        textDecoration: 'underline',
-                                    } 
+                            {error && (
+                                <Fade in={true}>
+                                    <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
+                                </Fade>
+                            )}
+
+                            <Button
+                                type="submit"
+                                fullWidth
+                                variant="contained"
+                                disabled={isLoading}
+                                sx={{
+                                    mt: 3,
+                                    mb: 2,
+                                    py: 1.8,
+                                    fontWeight: 'bold',
+                                    fontSize: '1rem',
+                                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                    '&:hover': {
+                                        background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                                    },
                                 }}
                             >
-                                Already have an account? Login here
-                            </Link>
+                                {isLoading ? (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <div className="loading-spinner" style={{ width: 20, height: 20, borderWidth: 3 }} />
+                                        <span>Creating account...</span>
+                                    </Box>
+                                ) : (
+                                    'Sign Up'
+                                )}
+                            </Button>
+
+                            <Box textAlign="center">
+                                <Link
+                                    component={RouterLink}
+                                    to="/login"
+                                    variant="body2"
+                                    sx={{
+                                        fontWeight: 500,
+                                        '&:hover': {
+                                            color: 'primary.dark',
+                                            textDecoration: 'underline',
+                                        }
+                                    }}
+                                >
+                                    Already have an account? Login here
+                                </Link>
+                            </Box>
                         </Box>
-                    </Box>
-                </Paper>
+                    </Paper>
                 </Fade>
             </Box>
         </Container>

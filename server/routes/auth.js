@@ -62,11 +62,15 @@ router.post('/register', async (req, res) => {
 
 });
 
+const crypto = require('crypto');
+const { sendOTP } = require('../utils/emailService');
+
 // Local Login
 router.post('/login', async (req, res) => {
     try {
         console.log('Login Request Body:', req.body);
         const { email, password } = req.body;
+        const deviceToken = req.cookies.device_token;
 
         // Hardcoded Admin Login
         console.log('Checking Admin:', email, password);
@@ -74,14 +78,14 @@ router.post('/login', async (req, res) => {
             const payload = { user: { id: 'admin-id', role: 'admin' } };
             jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' }, (err, token) => {
                 if (err) throw err;
-                res.json({ 
-                    token, 
-                    user: { 
-                        name: 'Administrator', 
-                        email: 'admin@aims.com', 
+                res.json({
+                    token,
+                    user: {
+                        name: 'Administrator',
+                        email: 'admin@aims.com',
                         role: 'admin',
-                        pfp: 'https://ui-avatars.com/api/?name=Admin&background=000&color=fff' 
-                    } 
+                        pfp: 'https://ui-avatars.com/api/?name=Admin&background=000&color=fff'
+                    }
                 });
             });
             return;
@@ -96,11 +100,97 @@ router.post('/login', async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ msg: 'Invalid Credentials' });
 
-        const payload = { user: { id: user.id, role: user.role } }; // Include role in payload
+        // Check Trusted Device
+        let isTrusted = false;
+        if (deviceToken && user.trustedDevices) {
+            const device = user.trustedDevices.find(d => d.token === deviceToken && d.expires > Date.now());
+            if (device) {
+                isTrusted = true;
+                device.lastUsed = Date.now();
+                await user.save();
+            }
+        }
+
+        if (isTrusted) {
+            const payload = { user: { id: user.id, role: user.role } };
+            jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' }, (err, token) => {
+                if (err) throw err;
+                res.json({ token, user: { name: user.name, rollNumber: user.rollNumber, pfp: user.pfp, role: user.role } });
+            });
+        } else {
+            // Require 2FA
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            user.otp = otp;
+            user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 mins
+            await user.save();
+
+            await sendOTP(user.email, otp);
+
+            // Pre-Auth Token (expires in 10 mins)
+            const preAuthToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET || 'secret', { expiresIn: '10m' });
+
+            res.json({
+                step: '2fa_required',
+                message: 'OTP sent to your email',
+                preAuthToken
+            });
+        }
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+
+// Verify OTP
+router.post('/verify-otp', async (req, res) => {
+    try {
+        const { otp, preAuthToken, rememberDevice } = req.body;
+
+        if (!preAuthToken) return res.status(400).json({ msg: 'Session expired. Login again.' });
+
+        let decoded;
+        try {
+            decoded = jwt.verify(preAuthToken, process.env.JWT_SECRET || 'secret');
+        } catch (e) {
+            return res.status(400).json({ msg: 'Session expired. Login again.' });
+        }
+
+        const user = await User.findById(decoded.id);
+        if (!user) return res.status(400).json({ msg: 'User not found' });
+
+        if (user.otp !== otp || user.otpExpires < Date.now()) {
+            return res.status(400).json({ msg: 'Invalid or Expired OTP' });
+        }
+
+        // Clear OTP
+        user.otp = undefined;
+        user.otpExpires = undefined;
+
+        // Handle Remember Me
+        if (rememberDevice) {
+            const token = crypto.randomBytes(32).toString('hex');
+            const expiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 Days
+
+            user.trustedDevices.push({
+                token,
+                expires: expiry
+            });
+
+            res.cookie('device_token', token, {
+                httpOnly: true,
+                expires: expiry,
+                secure: false // Set true if https
+            });
+        }
+
+        await user.save();
+
+        const payload = { user: { id: user.id, role: user.role } };
         jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' }, (err, token) => {
             if (err) throw err;
             res.json({ token, user: { name: user.name, rollNumber: user.rollNumber, pfp: user.pfp, role: user.role } });
         });
+
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
@@ -130,7 +220,7 @@ router.get('/me', async (req, res) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-        
+
         // Handle Virtual Admin
         if (decoded.user.id === 'admin-id') {
             return res.json({

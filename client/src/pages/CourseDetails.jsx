@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
 import {
     Container,
     Typography,
@@ -20,26 +21,37 @@ import {
     CardContent,
     Divider,
     Fade,
-    IconButton
+    IconButton,
+    Switch,
+    FormControlLabel,
+    TextField
 } from '@mui/material';
-import { 
-    ArrowBack, 
-    Refresh, 
-    CheckCircle, 
+import {
+    ArrowBack,
+    Refresh,
+    CheckCircle,
     Cancel,
     School,
     Person,
-    CalendarMonth
+    CalendarMonth,
+    Settings
 } from '@mui/icons-material';
 import api from '../utils/api';
 
 const CourseDetails = () => {
     const { courseId } = useParams();
     const navigate = useNavigate();
+    const { user } = useContext(AuthContext);
     const [course, setCourse] = useState(null);
     const [registrations, setRegistrations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState({ type: '', text: '' });
+
+    // Enrollment Settings State
+    const [enrollmentSettings, setEnrollmentSettings] = useState({
+        isEnrollmentOpen: true,
+        enrollmentDeadline: ''
+    });
 
     useEffect(() => {
         fetchCourseDetails();
@@ -50,7 +62,13 @@ const CourseDetails = () => {
         try {
             const courseRes = await api.get(`/courses/${courseId}`);
             setCourse(courseRes.data);
-            
+
+            // Set initial settings from course data
+            setEnrollmentSettings({
+                isEnrollmentOpen: courseRes.data.isEnrollmentOpen !== false, // default true
+                enrollmentDeadline: courseRes.data.enrollmentDeadline ? courseRes.data.enrollmentDeadline.split('T')[0] : ''
+            });
+
             const regRes = await api.get(`/courses/${courseId}/registrations`);
             setRegistrations(regRes.data);
         } catch (err) {
@@ -61,12 +79,31 @@ const CourseDetails = () => {
         }
     };
 
+    const updateEnrollmentSettings = async (key, value) => {
+        // Optimistic update
+        setEnrollmentSettings(prev => ({ ...prev, [key]: value }));
+
+        try {
+            const payload = {
+                [key]: value
+            };
+            await api.put(`/courses/${courseId}/enrollment-status`, payload);
+            setMessage({ type: 'success', text: 'Settings updated successfully' });
+            setTimeout(() => setMessage({ type: '', text: '' }), 2000);
+        } catch (err) {
+            console.error(err);
+            setMessage({ type: 'error', text: 'Failed to update settings' });
+            // Revert on error
+            fetchCourseDetails();
+        }
+    };
+
     const handleAction = async (regId, action) => {
         try {
             await api.put(`/courses/instructor/approve/${regId}`, { action });
-            setMessage({ 
-                type: 'success', 
-                text: `Student ${action === 'approve' ? 'approved' : 'rejected'} successfully` 
+            setMessage({
+                type: 'success',
+                text: `Student ${action === 'approve' ? 'approved' : 'rejected'} successfully`
             });
             fetchCourseDetails();
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
@@ -99,18 +136,18 @@ const CourseDetails = () => {
             <Fade in={true} timeout={600}>
                 <Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2 }}>
-                        <IconButton 
+                        <IconButton
                             onClick={() => navigate(-1)}
-                            sx={{ 
+                            sx={{
                                 bgcolor: 'rgba(99, 102, 241, 0.1)',
                                 '&:hover': { bgcolor: 'rgba(99, 102, 241, 0.2)' }
                             }}
                         >
                             <ArrowBack />
                         </IconButton>
-                        <Typography 
-                            variant="h4" 
-                            sx={{ 
+                        <Typography
+                            variant="h4"
+                            sx={{
                                 fontWeight: 700,
                                 flex: 1,
                                 background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
@@ -121,8 +158,8 @@ const CourseDetails = () => {
                         >
                             Course Details
                         </Typography>
-                        <Button 
-                            startIcon={<Refresh />} 
+                        <Button
+                            startIcon={<Refresh />}
                             onClick={fetchCourseDetails}
                             variant="outlined"
                         >
@@ -139,9 +176,9 @@ const CourseDetails = () => {
                     )}
 
                     {/* Course Info Card */}
-                    <Paper 
+                    <Paper
                         elevation={0}
-                        sx={{ 
+                        sx={{
                             p: 4,
                             mb: 3,
                             borderRadius: 3,
@@ -152,9 +189,9 @@ const CourseDetails = () => {
                         }}
                     >
                         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 3 }}>
-                            <Box sx={{ 
-                                p: 2, 
-                                borderRadius: 2, 
+                            <Box sx={{
+                                p: 2,
+                                borderRadius: 2,
                                 background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
                                 color: 'white',
                             }}>
@@ -167,8 +204,8 @@ const CourseDetails = () => {
                                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                                     <Chip label={course.code} color="primary" sx={{ fontWeight: 600 }} />
                                     <Chip label={course.department} variant="outlined" />
-                                    <Chip 
-                                        label={`${course.credits?.total || 0} Credits`} 
+                                    <Chip
+                                        label={`${course.credits?.total || 0} Credits`}
                                         color="secondary"
                                     />
                                 </Box>
@@ -227,10 +264,66 @@ const CourseDetails = () => {
                         )}
                     </Paper>
 
+                    {/* Enrollment Settings (Instructor Only) */}
+                    {(course.instructor._id === user?._id || course.instructor === user?._id) && (
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: 4,
+                                mb: 3,
+                                borderRadius: 3,
+                                background: 'rgba(255, 255, 255, 0.95)',
+                                backdropFilter: 'blur(20px)',
+                                border: '1px solid rgba(99, 102, 241, 0.1)',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            }}
+                        >
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                <Settings sx={{ mr: 1, color: 'primary.main' }} />
+                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                    Enrollment Settings
+                                </Typography>
+                            </Box>
+                            <Divider sx={{ mb: 3 }} />
+
+                            <Grid container spacing={3} alignItems="center">
+                                <Grid item xs={12} md={6}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={enrollmentSettings.isEnrollmentOpen}
+                                                onChange={(e) => updateEnrollmentSettings('isEnrollmentOpen', e.target.checked)}
+                                                color="primary"
+                                            />
+                                        }
+                                        label={
+                                            <Typography>
+                                                Enrollment Status:
+                                                <Box component="span" sx={{ fontWeight: 'bold', ml: 1, color: enrollmentSettings.isEnrollmentOpen ? 'success.main' : 'error.main' }}>
+                                                    {enrollmentSettings.isEnrollmentOpen ? 'OPEN' : 'CLOSED'}
+                                                </Box>
+                                            </Typography>
+                                        }
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <TextField
+                                        label="Enrollment Deadline"
+                                        type="date"
+                                        value={enrollmentSettings.enrollmentDeadline}
+                                        onChange={(e) => updateEnrollmentSettings('enrollmentDeadline', e.target.value)}
+                                        fullWidth
+                                        InputLabelProps={{ shrink: true }}
+                                    />
+                                </Grid>
+                            </Grid>
+                        </Paper>
+                    )}
+
                     {/* Students Table */}
-                    <Paper 
+                    <Paper
                         elevation={0}
-                        sx={{ 
+                        sx={{
                             borderRadius: 3,
                             background: 'rgba(255, 255, 255, 0.95)',
                             backdropFilter: 'blur(20px)',
@@ -266,10 +359,10 @@ const CourseDetails = () => {
                                         </TableRow>
                                     ) : (
                                         registrations.map((reg) => (
-                                            <TableRow 
+                                            <TableRow
                                                 key={reg._id}
-                                                sx={{ 
-                                                    '&:hover': { 
+                                                sx={{
+                                                    '&:hover': {
                                                         bgcolor: 'rgba(99, 102, 241, 0.04)',
                                                         transition: 'background-color 0.3s ease'
                                                     }
@@ -284,13 +377,13 @@ const CourseDetails = () => {
                                                 </TableCell>
                                                 <TableCell>{reg.student?.email}</TableCell>
                                                 <TableCell>
-                                                    <Chip 
+                                                    <Chip
                                                         label={reg.status.replace(/_/g, ' ')}
                                                         size="small"
                                                         color={
-                                                            reg.status === 'Approved' ? 'success' : 
-                                                            reg.status === 'Rejected' ? 'error' : 
-                                                            'warning'
+                                                            reg.status === 'Approved' ? 'success' :
+                                                                reg.status === 'Rejected' ? 'error' :
+                                                                    'warning'
                                                         }
                                                         sx={{ fontWeight: 500 }}
                                                     />
@@ -304,7 +397,7 @@ const CourseDetails = () => {
                                                                 color="success"
                                                                 startIcon={<CheckCircle />}
                                                                 onClick={() => handleAction(reg._id, 'approve')}
-                                                                sx={{ 
+                                                                sx={{
                                                                     minWidth: 100,
                                                                     transition: 'all 0.3s ease',
                                                                 }}
@@ -317,7 +410,7 @@ const CourseDetails = () => {
                                                                 color="error"
                                                                 startIcon={<Cancel />}
                                                                 onClick={() => handleAction(reg._id, 'reject')}
-                                                                sx={{ 
+                                                                sx={{
                                                                     minWidth: 100,
                                                                     transition: 'all 0.3s ease',
                                                                 }}

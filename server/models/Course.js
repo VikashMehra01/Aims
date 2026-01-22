@@ -12,7 +12,14 @@ const courseSchema = new mongoose.Schema({
         total: { type: Number, required: true }
     },
     semester: { type: String, required: true }, // e.g., "Monsoon 2024"
-    year: { type: String, required: true }
+    year: { type: String, required: true },
+
+    // Enrollment Controls
+    enrollmentDeadline: {
+        type: Date,
+        default: () => new Date(+new Date() + 7 * 24 * 60 * 60 * 1000) // Default: 7 days from now
+    },
+    isEnrollmentOpen: { type: Boolean, default: true }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Course', courseSchema);

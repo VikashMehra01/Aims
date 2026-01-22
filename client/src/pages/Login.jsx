@@ -14,15 +14,24 @@ import {
     Alert,
     Link,
     Fade,
-    Slide
+    Slide,
+    Checkbox,
+    FormControlLabel
 } from '@mui/material';
-import { School } from '@mui/icons-material';
+import { School, Security } from '@mui/icons-material';
 
 const Login = () => {
     const { login, user } = useContext(AuthContext);
     const [formData, setFormData] = useState({ email: '', password: '' });
+    const [authStep, setAuthStep] = useState('credentials'); // 'credentials' | 'otp'
+    const [otp, setOtp] = useState('');
+    const [preAuthToken, setPreAuthToken] = useState('');
+    const [rememberDevice, setRememberDevice] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [otpSentMessage, setOtpSentMessage] = useState('');
 
     if (user) {
         if (user.role === 'admin') return <Navigate to="/admin-dashboard" />;
@@ -35,10 +44,37 @@ const Login = () => {
         e.preventDefault();
         setIsLoading(true);
         setError('');
+
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-            const res = await axios.post(`${apiUrl}/auth/login`, formData);
-            login(res.data.token);
+            // STEP 1: Login with Credentials
+            if (authStep === 'credentials') {
+                const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                const res = await axios.post(`${apiUrl}/auth/login`, formData, {
+                    withCredentials: true // Important for cookies
+                });
+
+                if (res.data.step === '2fa_required') {
+                    setAuthStep('otp');
+                    setPreAuthToken(res.data.preAuthToken);
+                    setOtpSentMessage(res.data.message);
+                } else {
+                    // Trusted device or Admin -> Login Success
+                    login(res.data.token);
+                }
+            }
+            // STEP 2: Verify OTP
+            else {
+                const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                const res = await axios.post(`${apiUrl}/auth/verify-otp`, {
+                    otp,
+                    preAuthToken,
+                    rememberDevice
+                }, {
+                    withCredentials: true
+                });
+
+                login(res.data.token);
+            }
         } catch (err) {
             setError(err.response?.data?.msg || 'Login Failed');
         } finally {
@@ -82,80 +118,134 @@ const Login = () => {
                     >
                         <Slide direction="down" in={true} timeout={600}>
                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                <School sx={{ fontSize: 40, color: 'primary.main', mr: 1 }} />
-                                <Typography 
-                                    component="h1" 
-                                    variant="h3" 
-                                    fontWeight="bold" 
+                                {authStep === 'otp' ? (
+                                    <Security sx={{ fontSize: 40, color: 'primary.main', mr: 1 }} />
+                                ) : (
+                                    <School sx={{ fontSize: 40, color: 'primary.main', mr: 1 }} />
+                                )}
+                                <Typography
+                                    component="h1"
+                                    variant="h3"
+                                    fontWeight="bold"
                                     className="gradient-text"
                                 >
-                                    AIMS
+                                    {authStep === 'otp' ? 'Security Check' : 'AIMS'}
                                 </Typography>
                             </Box>
                         </Slide>
-                        
+
                         <Typography component="h2" variant="h6" color="textSecondary" gutterBottom sx={{ mb: 3 }}>
-                            Academic Information Management System
+                            {authStep === 'otp' ? 'Enter the OTP sent to your email' : 'Academic Information Management System'}
                         </Typography>
 
-                        <Button
-                            fullWidth
-                            variant="outlined"
-                            startIcon={<FcGoogle size={24} />}
-                            onClick={handleGoogleLogin}
-                            sx={{ 
-                                mt: 1, 
-                                mb: 3, 
-                                py: 1.8,
-                                borderColor: '#e0e0e0',
-                                color: '#333',
-                                backgroundColor: 'white',
-                                fontWeight: 600,
-                                fontSize: '1rem',
-                                '&:hover': {
-                                    borderColor: '#6366f1',
-                                    backgroundColor: 'rgba(99, 102, 241, 0.04)',
-                                    transform: 'translateY(-2px)',
-                                }
-                            }}
-                        >
-                            Sign in with Google
-                        </Button>
+                        {authStep === 'credentials' && (
+                            <>
+                                <Button
+                                    fullWidth
+                                    variant="outlined"
+                                    startIcon={<FcGoogle size={24} />}
+                                    onClick={handleGoogleLogin}
+                                    sx={{
+                                        mt: 1,
+                                        mb: 3,
+                                        py: 1.8,
+                                        borderColor: '#e0e0e0',
+                                        color: '#333',
+                                        backgroundColor: 'white',
+                                        fontWeight: 600,
+                                        fontSize: '1rem',
+                                        '&:hover': {
+                                            borderColor: '#6366f1',
+                                            backgroundColor: 'rgba(99, 102, 241, 0.04)',
+                                            transform: 'translateY(-2px)',
+                                        }
+                                    }}
+                                >
+                                    Sign in with Google
+                                </Button>
 
-                        <Divider sx={{ width: '100%', mb: 3 }}>
-                            <Typography variant="body2" color="textSecondary">
-                                or continue with email
-                            </Typography>
-                        </Divider>
+                                <Divider sx={{ width: '100%', mb: 3 }}>
+                                    <Typography variant="body2" color="textSecondary">
+                                        or continue with email
+                                    </Typography>
+                                </Divider>
+                            </>
+                        )}
 
                         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
-                            <TextField
-                                margin="normal"
-                                required
-                                fullWidth
-                                id="email"
-                                label="Email Address"
-                                name="email"
-                                autoComplete="email"
-                                autoFocus
-                                value={formData.email}
-                                onChange={handleChange}
-                                sx={{ mb: 2 }}
-                            />
-                            <TextField
-                                margin="normal"
-                                required
-                                fullWidth
-                                name="password"
-                                label="Password"
-                                type="password"
-                                id="password"
-                                autoComplete="current-password"
-                                value={formData.password}
-                                onChange={handleChange}
-                                sx={{ mb: 2 }}
-                            />
-                            
+                            {authStep === 'credentials' ? (
+                                <>
+                                    <TextField
+                                        margin="normal"
+                                        required
+                                        fullWidth
+                                        id="email"
+                                        label="Email Address"
+                                        name="email"
+                                        autoComplete="email"
+                                        autoFocus
+                                        value={formData.email}
+                                        onChange={handleChange}
+                                        sx={{ mb: 2 }}
+                                    />
+                                    <TextField
+                                        margin="normal"
+                                        required
+                                        fullWidth
+                                        name="password"
+                                        label="Password"
+                                        type={showPassword ? "text" : "password"}
+                                        id="password"
+                                        autoComplete="current-password"
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        sx={{ mb: 1 }}
+                                    />
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={showPassword}
+                                                onChange={(e) => setShowPassword(e.target.checked)}
+                                                color="primary"
+                                                size="small"
+                                            />
+                                        }
+                                        label={<Typography variant="body2">Show Password</Typography>}
+                                        sx={{ mb: 2, display: 'block' }}
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <Box sx={{ mb: 3, textAlign: 'center' }}>
+                                        <Alert severity="info" sx={{ mb: 2 }}>{otpSentMessage}</Alert>
+                                    </Box>
+                                    <TextField
+                                        margin="normal"
+                                        required
+                                        fullWidth
+                                        id="otp"
+                                        label="6-Digit OTP"
+                                        name="otp"
+                                        autoComplete="off"
+                                        autoFocus
+                                        value={otp}
+                                        onChange={(e) => setOtp(e.target.value)}
+                                        sx={{ mb: 2, '& input': { textAlign: 'center', letterSpacing: '0.5em', fontSize: '1.5rem' } }}
+                                    />
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={rememberDevice}
+                                                onChange={(e) => setRememberDevice(e.target.checked)}
+                                                color="primary"
+                                            />
+                                        }
+                                        label="Remember this device for 30 days"
+                                        sx={{ mt: 1, mb: 2, display: 'block', textAlign: 'left' }}
+                                    />
+                                </>
+                            )}
+
                             {error && (
                                 <Fade in={true}>
                                     <Alert severity="error" sx={{ mb: 2 }}>
@@ -163,15 +253,15 @@ const Login = () => {
                                     </Alert>
                                 </Fade>
                             )}
-                            
+
                             <Button
                                 type="submit"
                                 fullWidth
                                 variant="contained"
                                 disabled={isLoading}
-                                sx={{ 
-                                    mt: 2, 
-                                    mb: 3, 
+                                sx={{
+                                    mt: 2,
+                                    mb: 3,
                                     py: 1.8,
                                     fontWeight: 'bold',
                                     fontSize: '1rem',
@@ -184,29 +274,53 @@ const Login = () => {
                                 {isLoading ? (
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <div className="loading-spinner" style={{ width: 20, height: 20, borderWidth: 3 }} />
-                                        <span>Logging in...</span>
+                                        <span>{authStep === 'credentials' ? 'Logging in...' : 'Verifying...'}</span>
                                     </Box>
                                 ) : (
-                                    'Login'
+                                    authStep === 'credentials' ? 'Login' : 'Verify & Login'
                                 )}
                             </Button>
-                            
-                            <Box textAlign="center">
-                                <Link 
-                                    component={RouterLink} 
-                                    to="/register" 
-                                    variant="body2"
-                                    sx={{ 
-                                        fontWeight: 500,
-                                        '&:hover': { 
-                                            color: 'primary.dark',
-                                            textDecoration: 'underline',
-                                        } 
-                                    }}
-                                >
-                                    Don't have an account? Sign Up
-                                </Link>
-                            </Box>
+
+                            {authStep === 'credentials' && (
+                                <Box textAlign="center">
+                                    <Link
+                                        component={RouterLink}
+                                        to="/register"
+                                        variant="body2"
+                                        sx={{
+                                            fontWeight: 500,
+                                            '&:hover': {
+                                                color: 'primary.dark',
+                                                textDecoration: 'underline',
+                                            }
+                                        }}
+                                    >
+                                        Don't have an account? Sign Up
+                                    </Link>
+                                </Box>
+                            )}
+                            {authStep === 'otp' && (
+                                <Box textAlign="center">
+                                    <Link
+                                        component="button"
+                                        type="button"
+                                        onClick={() => {
+                                            setAuthStep('credentials');
+                                            setError('');
+                                        }}
+                                        variant="body2"
+                                        sx={{
+                                            fontWeight: 500,
+                                            '&:hover': {
+                                                color: 'primary.dark',
+                                                textDecoration: 'underline',
+                                            }
+                                        }}
+                                    >
+                                        Back to Login
+                                    </Link>
+                                </Box>
+                            )}
                         </Box>
                     </Paper>
                 </Fade>

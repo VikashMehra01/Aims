@@ -64,12 +64,12 @@ const StudentDashboard = () => {
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [enrollType, setEnrollType] = useState('Credit');
     const [message, setMessage] = useState({ type: '', text: '' });
-    
+
     // Peer View State
     const [openPeerDialog, setOpenPeerDialog] = useState(false);
     const [peers, setPeers] = useState([]);
     const [peerLoading, setPeerLoading] = useState(false);
-    
+
     // New State for Redesign
     const [activeTab, setActiveTab] = useState(0); // Default to Student Records
     const [filters, setFilters] = useState({
@@ -106,7 +106,7 @@ const StudentDashboard = () => {
             setLoading(false);
         }
     };
-    
+
     const handleTabChange = (event, newValue) => {
         setActiveTab(newValue);
     };
@@ -263,8 +263,8 @@ const StudentDashboard = () => {
             {/* Tab 1: Course Enrollment (Offered Courses) */}
             {activeTab === 1 && (
                 <Stack spacing={3}>
-                     {/* Filters Section */}
-                     <Paper sx={{ p: 3, borderRadius: 2 }} elevation={1}>
+                    {/* Filters Section */}
+                    <Paper sx={{ p: 3, borderRadius: 2 }} elevation={1}>
                         <Box display="flex" alignItems="center" mb={2}>
                             <FilterListIcon color="action" sx={{ mr: 1 }} />
                             <Typography variant="subtitle1" fontWeight="bold">Search Criteria</Typography>
@@ -300,9 +300,9 @@ const StudentDashboard = () => {
 
                     {/* Results Table */}
                     <Paper sx={{ width: '100%', mb: 2, borderRadius: 2 }} elevation={1}>
-                         <Box p={2} borderBottom="1px solid #eee">
+                        <Box p={2} borderBottom="1px solid #eee">
                             <Typography variant="subtitle1" fontWeight="bold" color="primary">Offered Courses</Typography>
-                         </Box>
+                        </Box>
                         <TableContainer>
                             <Table size="small">
                                 <TableHead sx={{ bgcolor: '#f5f5f5' }}>
@@ -322,7 +322,7 @@ const StudentDashboard = () => {
                                     {filteredCourses.map((course) => {
                                         const isEnrolled = myRegistrations.some(r => r.course._id === course._id);
                                         const ltpc = course.credits ? `${course.credits.lecture}-${course.credits.tutorial}-${course.credits.practical}-${course.credits.total}` : '3-0-0-3';
-                                        
+
                                         return (
                                             <TableRow key={course._id} hover>
                                                 <TableCell>{course.department}</TableCell>
@@ -343,9 +343,9 @@ const StudentDashboard = () => {
                                                     {isEnrolled ? (
                                                         <Chip label="Applied" color="default" size="small" />
                                                     ) : (
-                                                        <Button 
-                                                            variant="contained" 
-                                                            size="small" 
+                                                        <Button
+                                                            variant="contained"
+                                                            size="small"
                                                             color="primary"
                                                             disableElevation
                                                             onClick={() => handleEnrollClick(course)}
@@ -389,9 +389,9 @@ const StudentDashboard = () => {
                 <Container maxWidth="sm">
                     <Card>
                         <CardContent sx={{ textAlign: 'center', py: 5 }}>
-                            <Avatar 
-                                src={user.pfp} 
-                                sx={{ width: 100, height: 100, margin: '0 auto', mb: 2 }} 
+                            <Avatar
+                                src={user.pfp}
+                                sx={{ width: 100, height: 100, margin: '0 auto', mb: 2 }}
                             />
                             <Typography variant="h5" fontWeight="bold">{user.name.toUpperCase()}</Typography>
                             <Typography color="textSecondary" gutterBottom>{user.role.toUpperCase()}</Typography>
@@ -451,9 +451,9 @@ const StudentDashboard = () => {
                                 peers.map((p, index) => (
                                     <React.Fragment key={p._id}>
                                         <ListItem>
-                                            <ListItemText 
-                                                primary={p.student?.name} 
-                                                secondary={`${p.student?.department || ''} | ${p.student?.rollNumber || 'N/A'}`} 
+                                            <ListItemText
+                                                primary={p.student?.name}
+                                                secondary={`${p.student?.department || ''} | ${p.student?.rollNumber || 'N/A'}`}
                                             />
                                             <Chip label={p.type} size="small" variant="outlined" />
                                         </ListItem>

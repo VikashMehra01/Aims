@@ -10,7 +10,16 @@ const userSchema = new mongoose.Schema({
   degree: { type: String },
   yearOfEntry: { type: String },
   googleId: { type: String }, // For Google Auth
-  role: { type: String, enum: ['student', 'admin', 'instructor', 'faculty_advisor'], default: 'student' }
+  role: { type: String, enum: ['student', 'admin', 'instructor', 'faculty_advisor'], default: 'student' },
+
+  // 2FA Fields
+  otp: { type: String },
+  otpExpires: { type: Date },
+  trustedDevices: [{
+    token: { type: String, required: true },
+    expires: { type: Date, required: true },
+    lastUsed: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

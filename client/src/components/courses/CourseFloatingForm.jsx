@@ -11,12 +11,13 @@ const CourseFloatingForm = () => {
         practical: 0,
         total: 3,
         semester: '',
-        year: new Date().getFullYear().toString()
+        year: new Date().getFullYear().toString(),
+        enrollmentDeadline: ''
     });
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
 
-    const { code, title, department, lecture, tutorial, practical, total, semester, year } = formData;
+    const { code, title, department, lecture, tutorial, practical, total, semester, year, enrollmentDeadline } = formData;
 
     const onChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -32,13 +33,14 @@ const CourseFloatingForm = () => {
                 department,
                 credits: { lecture, tutorial, practical, total },
                 semester,
-                year
+                year,
+                enrollmentDeadline
             };
 
             const res = await api.post('/courses/float', courseData);
             setMessage(`Course ${res.data.code} floated successfully!`);
             // Reset form
-            setFormData({ ...formData, code: '', title: '' });
+            setFormData({ ...formData, code: '', title: '', enrollmentDeadline: '' });
         } catch (err) {
             setError(err.response?.data?.msg || 'Error floating course');
         }
@@ -95,6 +97,11 @@ const CourseFloatingForm = () => {
                     <div>
                         <label className="block text-gray-700">Year</label>
                         <input type="text" name="year" value={year} onChange={onChange} required
+                            className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                        <label className="block text-gray-700">Enrollment Deadline</label>
+                        <input type="date" name="enrollmentDeadline" value={enrollmentDeadline} onChange={onChange}
                             className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" />
                     </div>
                 </div>

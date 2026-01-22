@@ -44,12 +44,28 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
+// @route   GET /api/courses/:id
+// @desc    Get course details by ID
+// @access  Private
+router.get('/:id', auth, async (req, res) => {
+    try {
+        const course = await Course.findById(req.params.id).populate('instructor', 'name email');
+        if (!course) return res.status(404).json({ msg: 'Course not found' });
+        res.json(course);
+    } catch (err) {
+        // If ID is invalid ObjectID, it throws error
+        if (err.kind === 'ObjectId') return res.status(404).json({ msg: 'Course not found' });
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // @route   POST /api/courses/float
 // @desc    Float a new course
 // @access  Instructor only
 router.post('/float', auth, checkRole(['instructor', 'faculty_advisor']), async (req, res) => {
     try {
-        const { code, title, department, credits, semester, year } = req.body;
+        const { code, title, department, credits, semester, year, enrollmentDeadline } = req.body;
 
         const newCourse = new Course({
             code,
@@ -58,7 +74,9 @@ router.post('/float', auth, checkRole(['instructor', 'faculty_advisor']), async 
             instructor: req.user.id,
             credits,
             semester,
-            year
+            year,
+            enrollmentDeadline: enrollmentDeadline || null,
+            isEnrollmentOpen: true // Always open by default when floated
         });
 
         const course = await newCourse.save();
@@ -75,6 +93,18 @@ router.post('/float', auth, checkRole(['instructor', 'faculty_advisor']), async 
 router.post('/register', auth, checkRole(['student']), async (req, res) => {
     try {
         const { courseId, type } = req.body;
+
+        const course = await Course.findById(courseId);
+        if (!course) return res.status(404).json({ msg: 'Course not found' });
+
+        // Check Enrollment Status
+        if (course.isEnrollmentOpen === false) {
+            return res.status(400).json({ msg: 'Enrollment for this course is closed by the instructor.' });
+        }
+
+        if (course.enrollmentDeadline && new Date() > new Date(course.enrollmentDeadline)) {
+            return res.status(400).json({ msg: `Enrollment deadline passed on ${new Date(course.enrollmentDeadline).toDateString()}` });
+        }
 
         const alreadyRegistered = await CourseRegistration.findOne({
             student: req.user.id,
@@ -165,7 +195,7 @@ router.get('/:courseId/registrations', auth, checkRole(['instructor', 'faculty_a
         console.log('GET /:courseId/registrations request');
         console.log('Params:', req.params);
         console.log('User:', req.user.id);
-        
+
         const course = await Course.findById(req.params.courseId);
         if (!course) {
             console.log('Course not found');
@@ -267,7 +297,7 @@ router.put('/fa/approve/:id', auth, checkRole(['faculty_advisor']), async (req, 
 router.put('/:id', auth, checkRole(['admin']), async (req, res) => {
     try {
         const { code, title, department, credits, semester, year, instructor } = req.body;
-        
+
         // Find and update
         const course = await Course.findById(req.params.id);
         if (!course) return res.status(404).json({ msg: 'Course not found' });
@@ -288,6 +318,32 @@ router.put('/:id', auth, checkRole(['admin']), async (req, res) => {
     }
 });
 
+// @route   PUT /api/courses/:id/enrollment-status
+// @desc    Update enrollment availability (Instructor)
+// @access  Instructor
+router.put('/:id/enrollment-status', auth, checkRole(['instructor', 'faculty_advisor']), async (req, res) => {
+    try {
+        const { isEnrollmentOpen, enrollmentDeadline } = req.body;
+        const course = await Course.findById(req.params.id);
+
+        if (!course) return res.status(404).json({ msg: 'Course not found' });
+
+        // Verify ownership
+        if (course.instructor.toString() !== req.user.id) {
+            return res.status(403).json({ msg: 'Not authorized to manage this course' });
+        }
+
+        if (isEnrollmentOpen !== undefined) course.isEnrollmentOpen = isEnrollmentOpen;
+        if (enrollmentDeadline !== undefined) course.enrollmentDeadline = enrollmentDeadline;
+
+        await course.save();
+        res.json(course);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // @route   DELETE /api/courses/:id
 // @desc    Delete a course (Admin only)
 // @access  Admin
@@ -295,7 +351,7 @@ router.delete('/:id', auth, checkRole(['admin']), async (req, res) => {
     try {
         // First delete all registrations for this course
         await CourseRegistration.deleteMany({ course: req.params.id });
-        
+
         // Then delete the course
         const result = await Course.findByIdAndDelete(req.params.id);
         if (!result) return res.status(404).json({ msg: 'Course not found' });
