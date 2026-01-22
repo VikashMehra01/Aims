@@ -133,6 +133,25 @@ const HelpTab = () => {
                                                             <Typography component="span" variant="body2" color="textPrimary" display="block" sx={{ my: 0.5 }}>
                                                                 {req.description}
                                                             </Typography>
+                                                            {req.adminResponse && (
+                                                                <Box 
+                                                                    sx={{ 
+                                                                        mt: 1, 
+                                                                        p: 1.5, 
+                                                                        bgcolor: 'rgba(99, 102, 241, 0.08)', 
+                                                                        borderRadius: 2,
+                                                                        borderLeft: '3px solid',
+                                                                        borderColor: 'primary.main'
+                                                                    }}
+                                                                >
+                                                                    <Typography variant="caption" color="primary.main" fontWeight="bold" display="block">
+                                                                        Admin Response:
+                                                                    </Typography>
+                                                                    <Typography variant="body2" color="textPrimary" sx={{ mt: 0.5 }}>
+                                                                        {req.adminResponse}
+                                                                    </Typography>
+                                                                </Box>
+                                                            )}
                                                             <Typography variant="caption" color="textSecondary">
                                                                 {new Date(req.createdAt).toLocaleDateString()}
                                                             </Typography>

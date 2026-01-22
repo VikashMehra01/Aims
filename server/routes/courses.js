@@ -138,6 +138,25 @@ router.get('/instructor/pending', auth, checkRole(['instructor', 'faculty_adviso
 
 });
 
+// @route   GET /api/courses/:courseId
+// @desc    Get a specific course by ID
+// @access  Private
+router.get('/:courseId', auth, async (req, res) => {
+    try {
+        const course = await Course.findById(req.params.courseId).populate('instructor', 'name email');
+        if (!course) {
+            return res.status(404).json({ msg: 'Course not found' });
+        }
+        res.json(course);
+    } catch (err) {
+        console.error(err.message);
+        if (err.kind === 'ObjectId') {
+            return res.status(404).json({ msg: 'Course not found' });
+        }
+        res.status(500).send('Server Error');
+    }
+});
+
 // @route   GET /api/courses/:courseId/registrations
 // @desc    Get all registrations for a specific course (for the instructor)
 // @access  Instructor

@@ -36,7 +36,8 @@ const Login = () => {
         setIsLoading(true);
         setError('');
         try {
-            const res = await axios.post('http://localhost:5000/auth/login', formData);
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const res = await axios.post(`${apiUrl}/auth/login`, formData);
             login(res.data.token);
         } catch (err) {
             setError(err.response?.data?.msg || 'Login Failed');
@@ -46,7 +47,8 @@ const Login = () => {
     };
 
     const handleGoogleLogin = () => {
-        window.location.href = 'http://localhost:5000/auth/google';
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        window.location.href = `${apiUrl}/auth/google`;
     };
 
     return (
