@@ -37,8 +37,13 @@ import ClassIcon from '@mui/icons-material/Class';
 import HelpCenterIcon from '@mui/icons-material/HelpCenter';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
+import { useNavigate } from 'react-router-dom';
+// ... imports
+
 const AdminDashboard = () => {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState(0);
+    const [userTab, setUserTab] = useState(0); // 0: Students, 1: Faculty
     const [users, setUsers] = useState([]);
     const [courses, setCourses] = useState([]);
     const [helpRequests, setHelpRequests] = useState([]);
@@ -50,11 +55,6 @@ const AdminDashboard = () => {
     const [editUserOpen, setEditUserOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     const [userData, setUserData] = useState({});
-
-    // Edit Course State
-    const [editCourseOpen, setEditCourseOpen] = useState(false);
-    const [selectedCourse, setSelectedCourse] = useState(null);
-    const [courseData, setCourseData] = useState({});
 
     // Feedback Detail State
     const [feedbackDetailOpen, setFeedbackDetailOpen] = useState(false);
@@ -115,6 +115,20 @@ const AdminDashboard = () => {
         }
     };
 
+    const handlePasswordReset = async (userId) => {
+        const newPassword = prompt("Enter new password for this user:");
+        if (!newPassword) return;
+        
+        try {
+            // Updated to ensure we hit the right endpoint. Assuming general PUT update handles password or we need new route.
+            // Since I haven't updated backend, I will use a new specific route I will create in admin.js
+            await api.put(`/admin/users/${userId}/reset-password`, { password: newPassword });
+            setMsg({ type: 'success', text: 'Password reset successfully' });
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to reset password' });
+        }
+    };
+
     // --- Course Management ---
     const deleteCourse = async (id) => {
         if (!window.confirm('Are you sure? This will delete all enrollments linked to this course.')) return;
@@ -124,31 +138,6 @@ const AdminDashboard = () => {
             setMsg({ type: 'success', text: 'Course deleted' });
         } catch (err) {
             setMsg({ type: 'error', text: 'Failed to delete course' });
-        }
-    };
-
-    const openEditCourse = (course) => {
-        setSelectedCourse(course);
-        setCourseData({
-            code: course.code,
-            title: course.title,
-            department: course.department,
-            semester: course.semester,
-            year: course.year,
-            instructor: course.instructor?._id || course.instructor // Handle populated or ID
-        });
-        setEditCourseOpen(true);
-    };
-
-    const handleCourseUpdate = async () => {
-        try {
-            const res = await api.put(`/courses/${selectedCourse._id}`, courseData);
-            // Updating list locally is tricky due to population, so we refresh
-            fetchInitialData();
-            setMsg({ type: 'success', text: 'Course updated successfully' });
-            setEditCourseOpen(false);
-        } catch (err) {
-            setMsg({ type: 'error', text: 'Failed to update course' });
         }
     };
 
@@ -172,46 +161,64 @@ const AdminDashboard = () => {
 
             {/* Tab 0: Manage Users */}
             {activeTab === 0 && (
-                <TableContainer component={Paper} elevation={2}>
-                    <Table size="small">
-                        <TableHead sx={{ bgcolor: '#eee' }}>
-                            <TableRow>
-                                <TableCell>Name</TableCell>
-                                <TableCell>Email</TableCell>
-                                <TableCell>Role</TableCell>
-                                <TableCell>Department</TableCell>
-                                <TableCell>Entry No.</TableCell>
-                                <TableCell align="right">Actions</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {users.map((user) => (
-                                <TableRow key={user._id} hover>
-                                    <TableCell>
-                                        <Box display="flex" alignItems="center" gap={1}>
-                                            <Avatar src={user.pfp} sx={{ width: 24, height: 24 }} />
-                                            {user.name}
-                                        </Box>
-                                    </TableCell>
-                                    <TableCell>{user.email}</TableCell>
-                                    <TableCell>
-                                        <Chip 
-                                            label={user.role} 
-                                            size="small" 
-                                            color={user.role === 'admin' ? 'error' : user.role === 'instructor' ? 'primary' : 'default'} 
-                                            variant="outlined"
-                                        />
-                                    </TableCell>
-                                    <TableCell>{user.department || '-'}</TableCell>
-                                    <TableCell>{user.rollNumber || '-'}</TableCell>
-                                    <TableCell align="right">
-                                        <IconButton size="small" onClick={() => openEditUser(user)} color="primary"><EditIcon /></IconButton>
-                                    </TableCell>
+                <Paper sx={{ mb: 3 }}>
+                     <Tabs 
+                        value={userTab} 
+                        onChange={(e, val) => setUserTab(val)}
+                        textColor="primary"
+                        indicatorColor="primary"
+                        sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#f5f5f5' }}
+                    >
+                        <Tab label="Students" />
+                        <Tab label="Faculty & Staff" />
+                    </Tabs>
+                    <TableContainer>
+                        <Table size="small">
+                            <TableHead sx={{ bgcolor: '#fff' }}>
+                                <TableRow>
+                                    <TableCell>Name</TableCell>
+                                    <TableCell>Email</TableCell>
+                                    <TableCell>Role</TableCell>
+                                    <TableCell>Department</TableCell>
+                                    {userTab === 0 && <TableCell>Entry No.</TableCell>}
+                                    <TableCell align="right">Actions</TableCell>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                            </TableHead>
+                            <TableBody>
+                                {users.filter(u => userTab === 0 ? u.role === 'student' : u.role !== 'student').map((user) => (
+                                    <TableRow key={user._id} hover>
+                                        <TableCell>
+                                            <Box display="flex" alignItems="center" gap={1}>
+                                                <Avatar src={user.pfp} sx={{ width: 24, height: 24 }} />
+                                                {user.name}
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell>{user.email}</TableCell>
+                                        <TableCell>
+                                            <Chip 
+                                                label={user.role} 
+                                                size="small" 
+                                                color={user.role === 'admin' ? 'error' : user.role === 'instructor' ? 'primary' : 'default'} 
+                                                variant="outlined"
+                                            />
+                                        </TableCell>
+                                        <TableCell>{user.department || '-'}</TableCell>
+                                        {userTab === 0 && <TableCell>{user.rollNumber || '-'}</TableCell>}
+                                        <TableCell align="right">
+                                            <Button size="small" onClick={() => handlePasswordReset(user._id)}>Reset Pwd</Button>
+                                            <IconButton size="small" onClick={() => openEditUser(user)} color="primary"><EditIcon /></IconButton>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {users.filter(u => userTab === 0 ? u.role === 'student' : u.role !== 'student').length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={6} align="center">No users found in this category.</TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </Paper>
             )}
 
             {/* Tab 1: Manage Courses */}
@@ -237,7 +244,7 @@ const AdminDashboard = () => {
                                     <TableCell>{course.year} - {course.semester}</TableCell>
                                     <TableCell>{course.instructor?.name || 'Unknown'}</TableCell>
                                     <TableCell align="right">
-                                        <IconButton size="small" onClick={() => openEditCourse(course)} color="primary"><EditIcon /></IconButton>
+                                        <IconButton size="small" onClick={() => navigate(`/admin/edit-course/${course._id}`)} color="primary"><EditIcon /></IconButton>
                                         <IconButton size="small" onClick={() => deleteCourse(course._id)} color="error"><DeleteIcon /></IconButton>
                                     </TableCell>
                                 </TableRow>
@@ -378,24 +385,6 @@ const AdminDashboard = () => {
                 <DialogActions>
                     <Button onClick={() => setEditUserOpen(false)}>Cancel</Button>
                     <Button variant="contained" onClick={handleUserUpdate}>Save</Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Edit Course Dialog */}
-            <Dialog open={editCourseOpen} onClose={() => setEditCourseOpen(false)}>
-                <DialogTitle>Edit Course</DialogTitle>
-                <DialogContent>
-                     <Box component="form" sx={{ mt: 1, minWidth: 300 }}>
-                        <TextField fullWidth margin="dense" label="Code" value={courseData.code} onChange={e => setCourseData({...courseData, code: e.target.value})} />
-                        <TextField fullWidth margin="dense" label="Title" value={courseData.title} onChange={e => setCourseData({...courseData, title: e.target.value})} />
-                        <TextField fullWidth margin="dense" label="Department" value={courseData.department} onChange={e => setCourseData({...courseData, department: e.target.value})} />
-                        <TextField fullWidth margin="dense" label="Session (I/II/Summer)" value={courseData.semester} onChange={e => setCourseData({...courseData, semester: e.target.value})} />
-                        <TextField fullWidth margin="dense" label="Year" value={courseData.year} onChange={e => setCourseData({...courseData, year: e.target.value})} />
-                    </Box>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setEditCourseOpen(false)}>Cancel</Button>
-                    <Button variant="contained" onClick={handleCourseUpdate}>Save</Button>
                 </DialogActions>
             </Dialog>
 

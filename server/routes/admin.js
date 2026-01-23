@@ -84,4 +84,27 @@ router.put('/users/:id', adminAuth, async (req, res) => {
     }
 });
 
+// @route   PUT /api/admin/users/:id/reset-password
+// @desc    Reset user password (Admin only)
+// @access  Admin
+router.put('/users/:id/reset-password', adminAuth, async (req, res) => {
+    try {
+        const { password } = req.body;
+        if (!password) return res.status(400).json({ msg: 'Password is required' });
+
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ msg: 'User not found' });
+
+        const bcrypt = require('bcryptjs');
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(password, salt);
+
+        await user.save();
+        res.json({ msg: 'Password reset successfully' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 module.exports = router;

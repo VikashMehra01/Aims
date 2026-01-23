@@ -159,6 +159,19 @@ router.get('/student/academic-record', auth, async (req, res) => {
     }
 });
 
+// @route   GET /api/courses/instructor/my-courses
+// @desc    Get courses floated by the logged-in instructor
+// @access  Instructor
+router.get('/instructor/my-courses', auth, checkRole(['instructor', 'faculty_advisor']), async (req, res) => {
+    try {
+        const myCourses = await Course.find({ instructor: req.user.id });
+        res.json(myCourses);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // @route   GET /api/courses/instructor/pending
 // @desc    Get pending registrations for instructor's courses
 // @access  Instructor
@@ -236,20 +249,30 @@ router.post('/float', auth, checkRole(['instructor', 'faculty_advisor']), async 
             credits,
             semester,
             year,
-            enrollmentDeadline: enrollmentDeadline || null,
+            year,
+            enrollmentDeadline: enrollmentDeadline ? enrollmentDeadline : undefined, // Use undefined to trigger default
             isEnrollmentOpen: true,
             status: initialStatus,
-            section,
+            section: section || 'A', // Default to 'A' if not provided to avoid null unique index issues? Or keep undefined? 
+                                     // Better to check if course exists first.
             slot,
             eligibility: eligibility || [],
             coordinators: coordinators || []
         });
+        
+        // Handle Section - if undefined, unique index on {code, sem, year, section} treats null as value.
+        // If user floats same course twice without section, it crashes.
+        // Let's rely on catch block for duplicates.
 
         const course = await newCourse.save();
         res.json(course);
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        console.error('=== FLOAT COURSE ERROR ===');
+        console.error(err);
+        if (err.code === 11000) {
+            return res.status(400).json({ msg: 'Course already exists for this semester/year/section' });
+        }
+        res.status(500).send('Server Error: ' + err.message);
     }
 });
 
@@ -602,7 +625,7 @@ router.put('/fa/bulk-approve', auth, checkRole(['faculty_advisor']), async (req,
 // @access  Admin
 router.put('/:id', auth, checkRole(['admin']), async (req, res) => {
     try {
-        const { code, title, department, credits, semester, year, instructor } = req.body;
+        const { code, title, department, credits, semester, year, instructor, section, slot, eligibility, coordinators, status, enrollmentDeadline, isEnrollmentOpen } = req.body;
 
         // Find and update
         const course = await Course.findById(req.params.id);
@@ -615,6 +638,13 @@ router.put('/:id', auth, checkRole(['admin']), async (req, res) => {
         if (semester) course.semester = semester;
         if (year) course.year = year;
         if (instructor) course.instructor = instructor;
+        if (section !== undefined) course.section = section;
+        if (slot !== undefined) course.slot = slot;
+        if (eligibility) course.eligibility = eligibility;
+        if (coordinators) course.coordinators = coordinators;
+        if (status) course.status = status;
+        if (enrollmentDeadline !== undefined) course.enrollmentDeadline = enrollmentDeadline;
+        if (isEnrollmentOpen !== undefined) course.isEnrollmentOpen = isEnrollmentOpen;
 
         await course.save();
         res.json(course);

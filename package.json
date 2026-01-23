@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "scripts": {
     "start": "concurrently \"npm run server\" \"npm run client\"",
+    "dev": "concurrently \"npm run server:dev\" \"npm run client\"",
     "server": "cd server && npm start",
+    "server:dev": "cd server && npm run dev",
     "client": "cd client && npm run dev",
     "install-all": "cd server && npm install && cd ../client && npm install"
   },

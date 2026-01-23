@@ -123,13 +123,9 @@ const FacultyDashboard = () => {
             const pendingRes = await api.get('/courses/instructor/pending');
             setPendingRequests(pendingRes.data);
 
-            // Fetch all courses and filter for "my courses" (optimization: backend endpoint would be better)
-            const coursesRes = await api.get('/courses');
-            const mine = coursesRes.data.filter(c =>
-                (c.instructor._id === user._id) ||
-                (c.instructor === user._id)
-            );
-            setMyCourses(mine);
+            // Fetch my floated courses directly from backend
+            const coursesRes = await api.get('/courses/instructor/my-courses');
+            setMyCourses(coursesRes.data);
         } catch (err) {
             console.error(err);
         } finally {
@@ -426,13 +422,15 @@ const FacultyDashboard = () => {
                                 </Typography>
                                 <Grid container spacing={2} alignItems="center">
                                     <Grid item xs={12} sm={4} md={3}>
-                                        <FormControl fullWidth size="small">
-                                            <InputLabel>Department</InputLabel>
+                                        <FormControl fullWidth size="small" sx={{ minWidth: 150 }}>
+                                            <InputLabel shrink>Department</InputLabel>
                                             <Select
                                                 value={studentFilters.department}
                                                 label="Department"
                                                 onChange={(e) => handleStudentFilterChange('department', e.target.value)}
+                                                displayEmpty
                                             >
+                                                <MenuItem value="" disabled>Select Department</MenuItem>
                                                 <MenuItem value="">All</MenuItem>
                                                 {DEPARTMENTS.map(dept => (
                                                     <MenuItem key={dept} value={dept}>{dept}</MenuItem>
@@ -448,16 +446,19 @@ const FacultyDashboard = () => {
                                             placeholder="e.g. 2023"
                                             value={studentFilters.year}
                                             onChange={(e) => handleStudentFilterChange('year', e.target.value)}
+                                            InputLabelProps={{ shrink: true }}
                                         />
                                     </Grid>
                                     <Grid item xs={12} sm={4} md={3}>
-                                        <FormControl fullWidth size="small">
-                                            <InputLabel>Registration Type</InputLabel>
+                                        <FormControl fullWidth size="small" sx={{ minWidth: 150 }}>
+                                            <InputLabel shrink>Registration Type</InputLabel>
                                             <Select
                                                 value={studentFilters.type}
                                                 label="Registration Type"
                                                 onChange={(e) => handleStudentFilterChange('type', e.target.value)}
+                                                displayEmpty
                                             >
+                                                <MenuItem value="" disabled>Select Type</MenuItem>
                                                 <MenuItem value="">All</MenuItem>
                                                 <MenuItem value="Credit">Credit</MenuItem>
                                                 <MenuItem value="Audit">Audit</MenuItem>

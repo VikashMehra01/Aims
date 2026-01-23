@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema({
   yearOfEntry: { type: String },
   googleId: { type: String }, // For Google Auth
   role: { type: String, enum: ['student', 'admin', 'instructor', 'faculty_advisor'], default: 'student' },
+  isVerified: { type: Boolean, default: false },
 
   // 2FA Fields
   otp: { type: String },

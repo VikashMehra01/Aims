@@ -8,6 +8,7 @@ import Courses from './pages/Courses';
 import Feedback from './pages/Feedback';
 import StudentRecord from './pages/StudentRecord';
 import AdminDashboard from './pages/dashboards/AdminDashboard';
+import EditCourse from './pages/EditCourse';
 import CourseDetails from './pages/CourseDetails';
 import { AuthContext, AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
@@ -47,6 +48,12 @@ function App() {
           <Route path="/admin-dashboard" element={
             <PrivateRoute roles={['admin']}>
               <AdminDashboard />
+            </PrivateRoute>
+          } />
+          
+          <Route path="/admin/edit-course/:id" element={
+            <PrivateRoute roles={['admin']}>
+              <EditCourse />
             </PrivateRoute>
           } />
 

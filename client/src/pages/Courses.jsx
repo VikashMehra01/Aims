@@ -115,7 +115,6 @@ const Courses = () => {
                                                 <Grid item xs={12} sm={6} md={4} key={course._id}>
                                                     <Fade in={true} timeout={900 + courseIndex * 100}>
                                                         <Card 
-                                                            className="hover-float"
                                                             sx={{ 
                                                                 height: '100%',
                                                                 borderRadius: 2,

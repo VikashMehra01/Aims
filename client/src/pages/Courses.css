@@ -27,9 +27,7 @@
     border-bottom: none;
 }
 
-.course-item:hover {
-    background: rgba(255, 255, 255, 0.05);
-}
+
 
 .course-header {
     display: flex;

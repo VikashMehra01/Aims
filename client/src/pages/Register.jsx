@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import axios from 'axios';
+import { AuthContext } from '../context/AuthContext';
 import { Navigate, Link as RouterLink } from 'react-router-dom';
 import {
     Container,
@@ -18,27 +19,48 @@ import {
 import { School, CheckCircle } from '@mui/icons-material';
 
 const Register = () => {
+    const { login } = useContext(AuthContext);
+    
+    // Check for query params (from Google Auth redirect)
+    const queryParams = new URLSearchParams(window.location.search);
+    const initialName = queryParams.get('name') || '';
+    const initialEmail = queryParams.get('email') || '';
+    const initialGoogleId = queryParams.get('googleId') || '';
+
     const [formData, setFormData] = useState({
-        name: '',
+        name: initialName,
         rollNumber: '',
-        email: '',
+        email: initialEmail,
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        department: '',
+        degree: '',
+        googleId: initialGoogleId
     });
-    const [isStudent, setIsStudent] = useState(true);
+    const [role, setRole] = useState('student'); // 'student' or 'faculty'
+    const [authStep, setAuthStep] = useState('register'); // 'register' or 'otp'
+    const [otp, setOtp] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
+    const DEPARTMENTS = [
+        "Computer Science and Engineering",
+        "Electronics and Communication Engineering",
+        "Mechanical Engineering",
+        "Civil Engineering",
+        "Chemical Engineering",
+        "Biotechnology",
+        "Mathematics",
+        "Humanities and Social Sciences"
+    ];
+
+    const DEGREES = ["B.Tech", "M.Tech", "PhD", "M.Sc"];
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
-
-        if (name === 'email') {
-            const isStudentEmail = /^\d/.test(value);
-            setIsStudent(isStudentEmail);
-        }
     };
 
     const handleSubmit = async (e) => {
@@ -46,32 +68,68 @@ const Register = () => {
         setError('');
         setIsLoading(true);
 
-        if (formData.password !== formData.confirmPassword) {
-            setIsLoading(false);
-            return setError('Passwords do not match');
-        }
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-        if (!formData.email.endsWith('@iitrpr.ac.in')) {
-            setIsLoading(false);
-            return setError('Only @iitrpr.ac.in emails are allowed');
-        }
+        if (authStep === 'register') {
+            if (formData.password !== formData.confirmPassword) {
+                setIsLoading(false);
+                return setError('Passwords do not match');
+            }
 
-        try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-            await axios.post(`${apiUrl}/auth/register`, {
-                name: formData.name,
-                rollNumber: formData.rollNumber,
-                email: formData.email,
-                password: formData.password,
-                department: 'Unknown',
-                degree: 'B.Tech',
-                yearOfEntry: new Date().getFullYear().toString()
-            });
-            setSuccess(true);
-        } catch (err) {
-            setError(err.response?.data?.msg || 'Registration Failed');
-        } finally {
-            setIsLoading(false);
+            if (!formData.email.endsWith('@iitrpr.ac.in')) {
+                setIsLoading(false);
+                return setError('Only @iitrpr.ac.in emails are allowed');
+            }
+
+            if (!formData.department) {
+                setIsLoading(false);
+                return setError('Please select your department');
+            }
+
+            if (!formData.degree) {
+                setIsLoading(false);
+                return setError('Please select your degree');
+            }
+
+            try {
+                // Determine role
+                let roleToSend = role;
+                if (role === 'faculty') roleToSend = 'faculty';
+
+                await axios.post(`${apiUrl}/auth/register`, {
+                    name: formData.name,
+                    rollNumber: formData.rollNumber,
+                    email: formData.email,
+                    password: formData.password,
+                    department: formData.department,
+                    degree: formData.degree,
+                    yearOfEntry: new Date().getFullYear().toString(),
+                    googleId: formData.googleId, // Send googleId if present
+                    role: roleToSend
+                });
+                
+                setAuthStep('otp');
+                setError('');
+            } catch (err) {
+                setError(err.response?.data?.msg || 'Registration Failed');
+            } finally {
+                setIsLoading(false);
+            }
+        } else {
+            // Verify OTP
+            try {
+                const res = await axios.post(`${apiUrl}/auth/verify-registration`, {
+                    email: formData.email,
+                    otp
+                });
+                // Login immediately
+                login(res.data.token);
+                setSuccess(true);
+            } catch (err) {
+                setError(err.response?.data?.msg || 'Verification Failed');
+            } finally {
+                setIsLoading(false);
+            }
         }
     };
 
@@ -97,11 +155,11 @@ const Register = () => {
                                 Registration Successful!
                             </Typography>
                             <Typography variant="body1" color="textSecondary" sx={{ mb: 4 }}>
-                                Your account has been created. You can now login with your credentials.
+                                Your account has been verified and created. Redirecting...
                             </Typography>
                             <Button
                                 component={RouterLink}
-                                to="/login"
+                                to="/dashboard"
                                 variant="contained"
                                 size="large"
                                 fullWidth
@@ -109,12 +167,9 @@ const Register = () => {
                                     py: 1.8,
                                     fontWeight: 'bold',
                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                    '&:hover': {
-                                        background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-                                    },
                                 }}
                             >
-                                Go to Login
+                                Go to Dashboard
                             </Button>
                         </Paper>
                     </Fade>
@@ -124,7 +179,7 @@ const Register = () => {
     }
 
     return (
-        <Container component="main" maxWidth="xs">
+        <Container component="main" maxWidth="sm">
             <Box
                 sx={{
                     minHeight: '100vh',
@@ -156,84 +211,176 @@ const Register = () => {
                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                                 <School sx={{ fontSize: 36, color: 'primary.main', mr: 1 }} />
                                 <Typography component="h1" variant="h4" fontWeight="bold" className="gradient-text">
-                                    Create Account
+                                    {authStep === 'otp' ? 'Verify OTP' : 'Create Account'}
                                 </Typography>
                             </Box>
                         </Slide>
                         <Typography component="p" variant="subtitle1" color="textSecondary" gutterBottom sx={{ mb: 3 }}>
-                            Join AIMS today
+                            {authStep === 'otp' ? 'Check your email for code' : 'Join AIMS today'}
                         </Typography>
 
+                        {authStep === 'register' && (
+                            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
+                                <Button
+                                    variant={role === 'student' ? 'contained' : 'outlined'}
+                                    onClick={() => setRole('student')}
+                                    sx={{ borderRadius: 20, px: 3 }}
+                                >
+                                    Student
+                                </Button>
+                                <Button
+                                    variant={role === 'faculty' ? 'contained' : 'outlined'}
+                                    onClick={() => setRole('faculty')}
+                                    sx={{ borderRadius: 20, px: 3 }}
+                                >
+                                    Faculty
+                                </Button>
+                            </Box>
+                        )}
+
                         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3, width: '100%' }}>
-                            <TextField
-                                margin="normal"
-                                required
-                                fullWidth
-                                id="name"
-                                label="Full Name"
-                                name="name"
-                                autoComplete="name"
-                                autoFocus
-                                value={formData.name}
-                                onChange={handleChange}
-                            />
-                            {isStudent && (
-                                <TextField
-                                    margin="normal"
-                                    required
-                                    fullWidth
-                                    id="rollNumber"
-                                    label="Entry No."
-                                    name="rollNumber"
-                                    value={formData.rollNumber}
-                                    onChange={handleChange}
-                                />
-                            )}
-                            <TextField
-                                margin="normal"
-                                required
-                                fullWidth
-                                id="email"
-                                label="Email Address"
-                                name="email"
-                                autoComplete="email"
-                                value={formData.email}
-                                onChange={handleChange}
-                            />
-                            <TextField
-                                margin="normal"
-                                required
-                                fullWidth
-                                name="password"
-                                label="Password"
-                                type={showPassword ? "text" : "password"}
-                                id="password"
-                                value={formData.password}
-                                onChange={handleChange}
-                            />
-                            <TextField
-                                margin="normal"
-                                required
-                                fullWidth
-                                name="confirmPassword"
-                                label="Confirm Password"
-                                type={showPassword ? "text" : "password"}
-                                id="confirmPassword"
-                                value={formData.confirmPassword}
-                                onChange={handleChange}
-                            />
-                            <FormControlLabel
-                                control={
-                                    <Checkbox
-                                        checked={showPassword}
-                                        onChange={(e) => setShowPassword(e.target.checked)}
-                                        color="primary"
-                                        size="small"
+                            {authStep === 'register' ? (
+                                <>
+                                    <TextField
+                                        margin="normal"
+                                        required
+                                        fullWidth
+                                        id="name"
+                                        label="Full Name"
+                                        name="name"
+                                        autoComplete="name"
+                                        autoFocus
+                                        value={formData.name}
+                                        onChange={handleChange}
                                     />
-                                }
-                                label={<Typography variant="body2">Show Password</Typography>}
-                                sx={{ mb: 1, display: 'block' }}
-                            />
+                                    {role === 'student' && (
+                                        <TextField
+                                            margin="normal"
+                                            required
+                                            fullWidth
+                                            id="rollNumber"
+                                            label="Entry No."
+                                            name="rollNumber"
+                                            value={formData.rollNumber}
+                                            onChange={handleChange}
+                                        />
+                                    )}
+
+                                    <TextField
+                                        select
+                                        margin="normal"
+                                        required
+                                        fullWidth
+                                        id="degree"
+                                        label="Degree"
+                                        name="degree"
+                                        value={formData.degree}
+                                        onChange={handleChange}
+                                        SelectProps={{
+                                            native: true,
+                                        }}
+                                    >
+                                        <option value="" disabled></option>
+                                        {DEGREES.map((option) => (
+                                            <option key={option} value={option}>
+                                                {option}
+                                            </option>
+                                        ))}
+                                    </TextField>
+                                    
+                                    <TextField
+                                        select
+                                        margin="normal"
+                                        required
+                                        fullWidth
+                                        id="department"
+                                        label="Department"
+                                        name="department"
+                                        value={formData.department}
+                                        onChange={handleChange}
+                                        SelectProps={{
+                                            native: true,
+                                        }}
+                                    >
+                                        <option value="" disabled></option>
+                                        {DEPARTMENTS.map((option) => (
+                                            <option key={option} value={option}>
+                                                {option}
+                                            </option>
+                                        ))}
+                                    </TextField>
+
+                                    <TextField
+                                        margin="normal"
+                                        required
+                                        fullWidth
+                                        id="email"
+                                        label="Email Address"
+                                        name="email"
+                                        autoComplete="email"
+                                        value={formData.email}
+                                        onChange={handleChange}
+                                    />
+                                    <TextField
+                                        margin="normal"
+                                        required
+                                        fullWidth
+                                        name="password"
+                                        label="Password"
+                                        type={showPassword ? "text" : "password"}
+                                        id="password"
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                    />
+                                    <TextField
+                                        margin="normal"
+                                        required
+                                        fullWidth
+                                        name="confirmPassword"
+                                        label="Confirm Password"
+                                        type={showPassword ? "text" : "password"}
+                                        id="confirmPassword"
+                                        value={formData.confirmPassword}
+                                        onChange={handleChange}
+                                    />
+                                    
+                                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={showPassword}
+                                                    onChange={(e) => setShowPassword(e.target.checked)}
+                                                    color="primary"
+                                                    size="small"
+                                                />
+                                            }
+                                            label={<Typography variant="body2">Show Password</Typography>}
+                                            sx={{ mb: 1, mr: 0 }}
+                                        />
+                                    </Box>
+                                </>
+                            ) : (
+                                <>
+                                    <Alert severity="info" sx={{ mb: 2 }}>
+                                        An OTP has been sent to <strong>{formData.email}</strong>. Please enter it below to verify your account.
+                                    </Alert>
+                                    <TextField
+                                        margin="normal"
+                                        required
+                                        fullWidth
+                                        id="otp"
+                                        label="Enter 6-Digit OTP"
+                                        name="otp"
+                                        autoFocus
+                                        value={otp}
+                                        onChange={(e) => setOtp(e.target.value)}
+                                        inputProps={{ 
+                                            maxLength: 6, 
+                                            style: { textAlign: 'center', letterSpacing: '0.5em', fontSize: '1.2rem', fontWeight: 'bold' } 
+                                        }}
+                                    />
+                                </>
+                            )}
 
                             {error && (
                                 <Fade in={true}>
@@ -261,10 +408,10 @@ const Register = () => {
                                 {isLoading ? (
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <div className="loading-spinner" style={{ width: 20, height: 20, borderWidth: 3 }} />
-                                        <span>Creating account...</span>
+                                        <span>{authStep === 'register' ? 'Creating account...' : 'Verifying...'}</span>
                                     </Box>
                                 ) : (
-                                    'Sign Up'
+                                    authStep === 'register' ? 'Sign Up' : 'Verify & Login'
                                 )}
                             </Button>
 

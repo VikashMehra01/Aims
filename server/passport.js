@@ -20,27 +20,21 @@ module.exports = function (passport) {
                 if (user) {
                     return done(null, user);
                 } else {
-                    // Determine Role
-                    let role = 'student';
-                    if (email === 'facultyadvisor@iitrpr.ac.in') {
-                        role = 'faculty_advisor';
-                    } else if (/^[a-zA-Z]/.test(email)) {
-                        role = 'instructor';
+                    // Check if user exists by email (Account Linking)
+                    user = await User.findOne({ email: email });
+                    if (user) {
+                        // Link Google Account
+                        user.googleId = profile.id;
+                        if (!user.pfp || user.pfp.includes('ui-avatars')) {
+                             user.pfp = profile.photos[0].value;
+                        }
+                        await user.save();
+                        return done(null, user);
                     }
 
-                    const newUser = {
-                        googleId: profile.id,
-                        name: profile.displayName,
-                        email: profile.emails[0].value,
-                        pfp: profile.photos[0].value,
-                        rollNumber: profile.emails[0].value.split('@')[0],
-                        department: 'Unknown',
-                        degree: 'B.Tech',
-                        yearOfEntry: new Date().getFullYear().toString(),
-                        role
-                    };
-                    user = await User.create(newUser);
-                    return done(null, user);
+                    // New User - Do not create account automatically
+                    // Pass profile to callback to allow redirection to register page
+                    return done(null, false, { message: 'New User', profile: profile });
                 }
             } catch (err) {
                 console.error(err);

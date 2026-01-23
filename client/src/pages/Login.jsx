@@ -23,15 +23,17 @@ import { School, Security } from '@mui/icons-material';
 const Login = () => {
     const { login, user } = useContext(AuthContext);
     const [formData, setFormData] = useState({ email: '', password: '' });
-    const [authStep, setAuthStep] = useState('credentials'); // 'credentials' | 'otp'
-    const [otp, setOtp] = useState('');
-    const [preAuthToken, setPreAuthToken] = useState('');
-    const [rememberDevice, setRememberDevice] = useState(false);
+    const [role, setRole] = useState('student'); // 'student', 'instructor', 'admin'
     const [showPassword, setShowPassword] = useState(false);
 
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [otpSentMessage, setOtpSentMessage] = useState('');
+
+    // Missing state variables
+    const [authStep, setAuthStep] = useState('credentials'); // 'credentials' or 'otp'
+    const [otp, setOtp] = useState('');
+    const [rememberDevice, setRememberDevice] = useState(false);
 
     if (user) {
         if (user.role === 'admin') return <Navigate to="/admin-dashboard" />;
@@ -46,35 +48,51 @@ const Login = () => {
         setError('');
 
         try {
-            // STEP 1: Login with Credentials
-            if (authStep === 'credentials') {
-                const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-                const res = await axios.post(`${apiUrl}/auth/login`, formData, {
-                    withCredentials: true // Important for cookies
-                });
-
-                if (res.data.step === '2fa_required') {
-                    setAuthStep('otp');
-                    setPreAuthToken(res.data.preAuthToken);
-                    setOtpSentMessage(res.data.message);
-                } else {
-                    // Trusted device or Admin -> Login Success
-                    login(res.data.token);
-                }
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            // Determine role to send: 'faculty' maps to 'instructor' for backend check if needed, 
+            // but backend logic handles mapped checks.
+            // Let's send 'faculty' if user selected 'faculty' so backend knows.
+            // Actually my backend change expects 'role'.
+            // If user selected 'Faculty' button, I set role state to 'instructor'.
+            // But visually I show 'Faculty'. 
+            // Let's check my setRole calls: setRole('student'), setRole('instructor'), setRole('admin').
+            // Wait, previous replace_file_content setRole('instructor') for Faculty button. 
+            // So we are sending 'instructor' to backend if user picks 'Faculty'.
+            // If user is FA, and selects Faculty (which sets role='instructor'), backend should handle it.
+            // My backend logic: if (role === 'faculty') { ... } 
+            
+            // Let's adjust backend logic if I send 'instructor' instead of 'faculty'.
+            // Actually, let's just send what is in state.
+            
+            let roleToSend = role;
+            if (role === 'instructor') {
+                // If the user is really an FA, sending 'instructor' might trigger the mismatch check:
+                // if (role !== user.role) check.
+                // Re-reading backend: 
+                // if (role === 'faculty') { ... } 
+                // else if (role !== user.role) { ... }
+                
+                // So if I send 'instructor' and user in DB is 'faculty_advisor', it will fail the `role !== user.role` check.
+                // I should send 'faculty' if state is 'instructor' to trigger the lenient check?
+                // OR I fix backend to be lenient for instructor.
+                
+                // Let's send 'faculty' to be safe with the logic I wrote in Step 104.
+                roleToSend = 'faculty';
             }
-            // STEP 2: Verify OTP
-            else {
-                const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-                const res = await axios.post(`${apiUrl}/auth/verify-otp`, {
-                    otp,
-                    preAuthToken,
-                    rememberDevice
-                }, {
-                    withCredentials: true
-                });
 
-                login(res.data.token);
-            }
+            // Correction: In step 104, I wrote: 
+            // if (role === 'faculty') { ... } else if (role !== user.role) { ... }
+            // So if I send 'faculty', it checks for instructor/FA. This is good.
+
+            const res = await axios.post(`${apiUrl}/auth/login`, {
+                ...formData,
+                role: roleToSend
+            }, {
+                withCredentials: true 
+            });
+
+            login(res.data.token);
+
         } catch (err) {
             setError(err.response?.data?.msg || 'Login Failed');
         } finally {
@@ -137,6 +155,30 @@ const Login = () => {
                         <Typography component="h2" variant="h6" color="textSecondary" gutterBottom sx={{ mb: 3 }}>
                             {authStep === 'otp' ? 'Enter the OTP sent to your email' : 'Academic Information Management System'}
                         </Typography>
+
+                        {authStep === 'credentials' && (
+                            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 1 }}>
+                                {['student', 'faculty', 'admin'].map((r) => (
+                                    <Button
+                                        key={r}
+                                        variant={role === r ? 'contained' : 'outlined'}
+                                        onClick={() => setRole(r)}
+                                        size="small"
+                                        sx={{ 
+                                            borderRadius: 20, 
+                                            textTransform: 'capitalize',
+                                            px: 2,
+                                            minWidth: 'auto',
+                                            bgcolor: role === r ? 'primary.main' : 'transparent',
+                                            color: role === r ? 'white' : 'text.secondary',
+                                            borderColor: role === r ? 'primary.main' : 'divider'
+                                        }}
+                                    >
+                                        {r}
+                                    </Button>
+                                ))}
+                            </Box>
+                        )}
 
                         {authStep === 'credentials' && (
                             <>

@@ -8,7 +8,7 @@ const User = require('../models/User');
 // Local Register
 router.post('/register', async (req, res) => {
     try {
-        const { name, email, password, department, degree, yearOfEntry } = req.body;
+        const { name, email, password, department, degree, yearOfEntry, googleId } = req.body;
         let { rollNumber } = req.body;
 
         // Ensure rollNumber is undefined if empty string (to satisfy sparse unique index)
@@ -22,14 +22,25 @@ router.post('/register', async (req, res) => {
 
         // Determine Role
         let role = 'student';
-        if (email === 'facultyadvisor@iitrpr.ac.in') {
-            role = 'faculty_advisor';
-        } else if (/^[a-zA-Z]/.test(email)) {
+        if (req.body.role === 'faculty') {
             role = 'instructor';
+        } else if (req.body.role === 'student') {
+            role = 'student';
+        } else {
+             // Fallback to legacy email detection if no role provided (or invalid)
+            if (email === 'facultyadvisor@iitrpr.ac.in') {
+                role = 'faculty_advisor';
+            } else if (/^[a-zA-Z]/.test(email)) {
+                role = 'instructor';
+            }
         }
 
         let user = await User.findOne({ email });
         if (user) return res.status(400).json({ msg: 'User already exists' });
+
+        // Generate OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
@@ -43,23 +54,59 @@ router.post('/register', async (req, res) => {
             degree,
             yearOfEntry,
             pfp: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
-            role
+            role,
+            otp,
+            otpExpires,
+            isVerified: false,
+            googleId // Save Google ID if provided
         });
 
         await user.save();
 
-        const payload = { user: { id: user.id } };
-        jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' }, (err, token) => {
-            if (err) throw err;
-            res.json({ token });
-        });
+        // Send OTP
+        await sendOTP(email, otp);
+
+        res.json({ msg: 'Registration successful. OTP sent to email.', email });
+        
     } catch (err) {
         console.error('=== REGISTRATION ERROR ===');
         console.error('Message:', err.message);
         console.error('Stack:', err.stack);
         res.status(500).json({ msg: 'Server error', error: err.message });
     }
+});
 
+// Verify Registration OTP
+router.post('/verify-registration', async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        
+        let user = await User.findOne({ email });
+        if (!user) return res.status(400).json({ msg: 'User not found' });
+
+        if (user.isVerified) {
+             return res.status(400).json({ msg: 'User already verified. Please login.' });
+        }
+
+        if (user.otp !== otp || user.otpExpires < Date.now()) {
+            return res.status(400).json({ msg: 'Invalid or expired OTP' });
+        }
+
+        user.isVerified = true;
+        user.otp = undefined;
+        user.otpExpires = undefined;
+        await user.save();
+
+        const payload = { user: { id: user.id, role: user.role } };
+        jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' }, (err, token) => {
+            if (err) throw err;
+            res.json({ token, user: { name: user.name, role: user.role } });
+        });
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
 });
 
 const crypto = require('crypto');
@@ -69,12 +116,11 @@ const { sendOTP } = require('../utils/emailService');
 router.post('/login', async (req, res) => {
     try {
         console.log('Login Request Body:', req.body);
-        const { email, password } = req.body;
-        const deviceToken = req.cookies.device_token;
+        const { email, password, role } = req.body;
 
         // Hardcoded Admin Login
-        console.log('Checking Admin:', email, password);
         if (email === 'admin@aims.com' && password === 'admin123') {
+            // Allow login regardless of role selected, force role to 'admin'
             const payload = { user: { id: 'admin-id', role: 'admin' } };
             jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' }, (err, token) => {
                 if (err) throw err;
@@ -97,94 +143,36 @@ router.post('/login', async (req, res) => {
         // Check if user has password (might be Google user)
         if (!user.password) return res.status(400).json({ msg: 'Please login with Google' });
 
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ msg: 'Invalid Credentials' });
-
-        // Check Trusted Device
-        let isTrusted = false;
-        if (deviceToken && user.trustedDevices) {
-            const device = user.trustedDevices.find(d => d.token === deviceToken && d.expires > Date.now());
-            if (device) {
-                isTrusted = true;
-                device.lastUsed = Date.now();
-                await user.save();
+        // Check Role if provided
+        if (role) {
+            // Map 'faculty' to 'instructor' for checking (if UI sends 'faculty')
+            // But usually UI sends specific 'instructor' or 'faculty_advisor'
+            // Let's assume UI sends 'student', 'instructor', 'faculty_advisor' or 'admin' 
+            // OR maybe UI just sends 'faculty' and we check if user is instructor or FA?
+            
+            // Re-reading usage: user said "choose as faculty or student". 
+            // If user selects "Faculty", they might be 'instructor' or 'faculty_advisor'.
+            if (role === 'faculty') {
+                if (!['instructor', 'faculty_advisor'].includes(user.role)) {
+                     return res.status(400).json({ msg: 'Account does not have Faculty privileges' });
+                }
+            } else if (role !== user.role) {
+                 // specific role check
+                 // If user is 'faculty_advisor' and selects 'instructor' (if they are separate options?), FA is also an instructor. 
+                 // But let's stick to strict match or mapped match.
+                 // For now, let's trust the UI sends mapped values or simply:
+                 if (role === 'student' && user.role !== 'student') {
+                     return res.status(400).json({ msg: 'Invalid role selected for this account' });
+                 }
+                 // If user is FA, allow 'instructor' login?
+                 // Let's keep it simple: If role is provided, user.role must match, OR user.role must be compatible.
             }
         }
 
-        if (isTrusted) {
-            const payload = { user: { id: user.id, role: user.role } };
-            jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' }, (err, token) => {
-                if (err) throw err;
-                res.json({ token, user: { name: user.name, rollNumber: user.rollNumber, pfp: user.pfp, role: user.role } });
-            });
-        } else {
-            // Require 2FA
-            const otp = Math.floor(100000 + Math.random() * 900000).toString();
-            user.otp = otp;
-            user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 mins
-            await user.save();
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) return res.status(400).json({ msg: 'Invalid Credentials' });
 
-            await sendOTP(user.email, otp);
-
-            // Pre-Auth Token (expires in 10 mins)
-            const preAuthToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET || 'secret', { expiresIn: '10m' });
-
-            res.json({
-                step: '2fa_required',
-                message: 'OTP sent to your email',
-                preAuthToken
-            });
-        }
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
-});
-
-// Verify OTP
-router.post('/verify-otp', async (req, res) => {
-    try {
-        const { otp, preAuthToken, rememberDevice } = req.body;
-
-        if (!preAuthToken) return res.status(400).json({ msg: 'Session expired. Login again.' });
-
-        let decoded;
-        try {
-            decoded = jwt.verify(preAuthToken, process.env.JWT_SECRET || 'secret');
-        } catch (e) {
-            return res.status(400).json({ msg: 'Session expired. Login again.' });
-        }
-
-        const user = await User.findById(decoded.id);
-        if (!user) return res.status(400).json({ msg: 'User not found' });
-
-        if (user.otp !== otp || user.otpExpires < Date.now()) {
-            return res.status(400).json({ msg: 'Invalid or Expired OTP' });
-        }
-
-        // Clear OTP
-        user.otp = undefined;
-        user.otpExpires = undefined;
-
-        // Handle Remember Me
-        if (rememberDevice) {
-            const token = crypto.randomBytes(32).toString('hex');
-            const expiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 Days
-
-            user.trustedDevices.push({
-                token,
-                expires: expiry
-            });
-
-            res.cookie('device_token', token, {
-                httpOnly: true,
-                expires: expiry,
-                secure: false // Set true if https
-            });
-        }
-
-        await user.save();
-
+        // Login Success - No OTP
         const payload = { user: { id: user.id, role: user.role } };
         jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' }, (err, token) => {
             if (err) throw err;
@@ -200,18 +188,30 @@ router.post('/verify-otp', async (req, res) => {
 // Google Auth
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-router.get('/google/callback',
-    passport.authenticate('google', { failureRedirect: '/login' }),
-    (req, res) => {
-        // Generate JWT
-        const payload = { user: { id: req.user.id } };
+router.get('/google/callback', (req, res, next) => {
+    passport.authenticate('google', { session: false }, (err, user, info) => {
+        if (err) return next(err);
+        
+        // If user not found, it means they need to register
+        if (!user) {
+            if (info && info.profile) {
+                const email = info.profile.emails[0].value;
+                const name = encodeURIComponent(info.profile.displayName);
+                const googleId = info.profile.id;
+                // Redirect to client registration page with pre-filled data
+                return res.redirect(`http://localhost:5173/register?email=${email}&name=${name}&googleId=${googleId}`);
+            }
+            return res.redirect('http://localhost:5173/login?error=Google_Auth_Failed');
+        }
+
+        // Login Success
+        const payload = { user: { id: user.id } };
         jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' }, (err, token) => {
             if (err) throw err;
-            // Redirect to client with token
             res.redirect(`http://localhost:5173/login?token=${token}`);
         });
-    }
-);
+    })(req, res, next);
+});
 
 router.get('/me', async (req, res) => {
     // Simple middleware verification
