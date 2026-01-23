@@ -62,6 +62,31 @@ const FacultyDashboard = () => {
         year: new Date().getFullYear().toString()
     });
 
+    // Enhanced Float State
+    const [lookupQuery, setLookupQuery] = useState('');
+    const [eligibilityList, setEligibilityList] = useState([]);
+    
+    // Eligibility Row State
+    const [newEligibility, setNewEligibility] = useState({
+        degree: '',
+        department: '',
+        category: 'Programme Core',
+        entryYears: ''
+    });
+
+    const DEPARTMENTS = [
+        "Computer Science and Engineering",
+        "Electronics and Communication Engineering", 
+        "Mechanical Engineering",
+        "Civil Engineering",
+        "Chemical Engineering", 
+        "Biotechnology",
+        "Mathematics", 
+        "Humanities and Social Sciences"
+    ];
+
+    const DEGREES = ["B.Tech", "M.Tech", "PhD", "M.Sc"];
+
     useEffect(() => {
         fetchData();
     }, []);
@@ -107,6 +132,48 @@ const FacultyDashboard = () => {
 
 
 
+    const handleFloatChange = (e) => setFloatData({ ...floatData, [e.target.name]: e.target.value });
+
+    // Lookup Function
+    const handleLookup = async () => {
+        try {
+            // In a real app, this would open a dialog with results. 
+            // For now, we will just auto-fill if we find an exact match or similar.
+            const res = await api.get(`/courses/history/search?q=${floatData.code || floatData.title}`);
+            if(res.data && res.data.length > 0) {
+                 const match = res.data[0];
+                 setFloatData({
+                     ...floatData,
+                     code: match.code,
+                     title: match.title,
+                     department: match.department,
+                     credits: match.credits?.total || 4,
+                     lecture: match.credits?.lecture || 3,
+                     tutorial: match.credits?.tutorial || 0,
+                     practical: match.credits?.practical || 0
+                 });
+                 setMessage({ type: 'success', text: 'Course details auto-filled from history' });
+            } else {
+                 setMessage({ type: 'info', text: 'No course history found for this code.' });
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    // Eligibility Handlers
+    const handleAddEligibility = () => {
+        if(!newEligibility.degree || !newEligibility.department) return;
+        setEligibilityList([...eligibilityList, { ...newEligibility, entryYears: newEligibility.entryYears.split(',').map(y=>y.trim()) }]);
+        setNewEligibility({ degree: '', department: '', category: 'Programme Core', entryYears: '' });
+    };
+
+    const handleDeleteEligibility = (index) => {
+        const list = [...eligibilityList];
+        list.splice(index, 1);
+        setEligibilityList(list);
+    };
+
     const handleFloatSubmit = async () => {
         if (!floatData.code || !floatData.title || !floatData.department) {
             return setMessage({ type: 'error', text: 'Please fill required fields' });
@@ -115,11 +182,12 @@ const FacultyDashboard = () => {
             await api.post('/courses/float', {
                 ...floatData,
                 credits: { 
-                    lecture: floatData.lecture,
-                    tutorial: floatData.tutorial,
-                    practical: floatData.practical,
-                    total: floatData.credits 
-                }
+                    lecture: Number(floatData.lecture),
+                    tutorial: Number(floatData.tutorial),
+                    practical: Number(floatData.practical),
+                    total: Number(floatData.credits) 
+                },
+                eligibility: eligibilityList
             });
             setMessage({ type: 'success', text: 'Course floated successfully!' });
             // Reset form
@@ -134,14 +202,13 @@ const FacultyDashboard = () => {
                 semester: 'I',
                 year: new Date().getFullYear().toString()
             });
+            setEligibilityList([]);
             fetchData();
             setActiveTab(1); // Switch to My Courses tab
         } catch (err) {
             setMessage({ type: 'error', text: err.response?.data?.msg || 'Failed to float course' });
         }
     };
-
-    const handleFloatChange = (e) => setFloatData({ ...floatData, [e.target.name]: e.target.value });
 
     if (loading) return (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -397,71 +464,135 @@ const FacultyDashboard = () => {
 
                     {/* Tab 2: Float Course Form */}
                     {activeTab === 2 && (
-                        <Container maxWidth="sm">
-                            <Paper 
-                                elevation={0}
-                                sx={{ 
-                                    p: 4,
-                                    borderRadius: 3,
-                                    background: 'rgba(255, 255, 255, 0.98)',
-                                    backdropFilter: 'blur(20px)',
-                                    border: '1px solid rgba(99, 102, 241, 0.1)',
-                                }}
-                            >
-                        <Typography variant="h6" gutterBottom>Float New Course</Typography>
-                         <Box component="form" sx={{ mt: 2 }}>
-                            <TextField fullWidth margin="dense" label="Course Code" name="code" value={floatData.code} onChange={handleFloatChange} required />
-                            <TextField fullWidth margin="dense" label="Course Title" name="title" value={floatData.title} onChange={handleFloatChange} required />
-                            
-                            <FormControl fullWidth margin="dense">
-                                <InputLabel>Department</InputLabel>
-                                <Select
-                                    name="department"
-                                    value={floatData.department}
-                                    label="Department"
-                                    onChange={handleFloatChange}
-                                >
-                                    <MenuItem value="CSE">Computer Science and Engineering</MenuItem>
-                                    <MenuItem value="ECE">Electronics and Communication Engineering</MenuItem>
-                                    <MenuItem value="ME">Mechanical Engineering</MenuItem>
-                                    <MenuItem value="Civil">Civil Engineering</MenuItem>
-                                    <MenuItem value="CHE">Chemical Engineering</MenuItem>
-                                    <MenuItem value="Biotech">Biotechnology</MenuItem>
-                                    <MenuItem value="Math">Mathematics</MenuItem>
-                                    <MenuItem value="HSS">Humanities and Social Sciences</MenuItem>
-                                </Select>
-                            </FormControl>
-
-                            <Box display="flex" gap={1}>
-                                <TextField fullWidth margin="dense" label="L" name="lecture" type="number" value={floatData.lecture} onChange={handleFloatChange} />
-                                <TextField fullWidth margin="dense" label="T" name="tutorial" type="number" value={floatData.tutorial} onChange={handleFloatChange} />
-                                <TextField fullWidth margin="dense" label="P" name="practical" type="number" value={floatData.practical} onChange={handleFloatChange} />
-                                <TextField fullWidth margin="dense" label="Total Credits" name="credits" type="number" value={floatData.credits} onChange={handleFloatChange} required />
+                        <Container maxWidth="lg">
+                            <Box sx={{ mb: 2 }}>
+                                <Typography variant="h5" fontWeight="bold">Course Offering Details</Typography>
                             </Box>
                             
-                            <FormControl fullWidth margin="dense">
-                                <InputLabel>Session Type</InputLabel>
-                                <Select
-                                    name="semester"
-                                    value={floatData.semester}
-                                    label="Session Type"
-                                    onChange={handleFloatChange}
-                                >
-                                    <MenuItem value="I">Semester I (Monsoon)</MenuItem>
-                                    <MenuItem value="II">Semester II (Winter)</MenuItem>
-                                    <MenuItem value="Summer">Summer Session</MenuItem>
-                                </Select>
-                            </FormControl>
+                            <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '1px solid #ddd' }}>
+                                <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ borderBottom: '2px solid #eee', pb: 1, mb: 3 }}>
+                                    Main
+                                </Typography>
 
-                            <TextField fullWidth margin="dense" label="Academic Year" name="year" value={floatData.year} onChange={handleFloatChange} required helperText="e.g. 2026" />
-                            
-                            <Button fullWidth variant="contained" size="large" onClick={handleFloatSubmit} sx={{ mt: 3 }}>
-                                Float Course
-                            </Button>
-                        </Box>
-                    </Paper>
-                </Container>
-            )}
+                                <Grid container spacing={4}>
+                                    <Grid item xs={12} md={6}>
+                                        <Box display="flex" gap={1} mb={3}>
+                                            <TextField 
+                                                fullWidth 
+                                                size="small"
+                                                label="Course Code & Title" 
+                                                name="code" 
+                                                value={floatData.code} 
+                                                onChange={handleFloatChange} 
+                                                placeholder="e.g. CS201 :: Data Structures"
+                                                required 
+                                            />
+                                            <Button variant="outlined" onClick={handleLookup}>Lookup</Button>
+                                        </Box>
+                                        
+                                        <Box mb={3}>
+                                            <TextField 
+                                                fullWidth 
+                                                size="small" 
+                                                label="Course Title" 
+                                                name="title" 
+                                                value={floatData.title} 
+                                                onChange={handleFloatChange} 
+                                                required 
+                                            />
+                                        </Box>
+                                        
+                                        {/* Credits */}
+                                        <Box mb={3}>
+                                            <Typography variant="caption">Credits (L-T-P-C)</Typography>
+                                            <Box display="flex" gap={2}>
+                                                <TextField size="small" label="L" name="lecture" type="number" value={floatData.lecture} onChange={handleFloatChange} />
+                                                <TextField size="small" label="T" name="tutorial" type="number" value={floatData.tutorial} onChange={handleFloatChange} />
+                                                <TextField size="small" label="P" name="practical" type="number" value={floatData.practical} onChange={handleFloatChange} />
+                                                <TextField size="small" label="Total" name="credits" type="number" value={floatData.credits} onChange={handleFloatChange} required />
+                                            </Box>
+                                        </Box>
+
+                                        <Box display="flex" gap={2} mb={3}>
+                                            <FormControl fullWidth size="small">
+                                                <InputLabel>Session</InputLabel>
+                                                <Select name="semester" value={floatData.semester} label="Session" onChange={handleFloatChange}>
+                                                    <MenuItem value="I">Semester I</MenuItem>
+                                                    <MenuItem value="II">Semester II</MenuItem>
+                                                    <MenuItem value="Summer">Summer</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                            <TextField size="small" label="Year" name="year" value={floatData.year} onChange={handleFloatChange} />
+                                        </Box>
+                                    </Grid>
+
+                                    <Grid item xs={12} md={6}>
+                                        <FormControl fullWidth size="small" sx={{ mb: 3 }}>
+                                            <InputLabel>Department</InputLabel>
+                                            <Select name="department" value={floatData.department} label="Department" onChange={handleFloatChange}>
+                                                {DEPARTMENTS.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                                            </Select>
+                                        </FormControl>
+
+                                        <TextField fullWidth size="small" label="Section" name="section" value={floatData.section || ''} onChange={handleFloatChange} sx={{ mb: 3 }} />
+                                        <TextField fullWidth size="small" label="Slot" name="slot" value={floatData.slot || ''} onChange={handleFloatChange} sx={{ mb: 3 }} />
+                                        
+                                        {/* Coord Table */}
+                                        <TableContainer component={Paper} variant="outlined">
+                                            <Table size="small">
+                                                <TableHead><TableRow><TableCell>Instructor</TableCell><TableCell>Is Coord</TableCell></TableRow></TableHead>
+                                                <TableBody><TableRow><TableCell>{user.name}</TableCell><TableCell><input type="checkbox" checked disabled/></TableCell></TableRow></TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    </Grid>
+                                </Grid>
+
+                                {/* Eligibility Section */}
+                                <Box mt={4} bgcolor="#f5f5f5" p={2} borderRadius={2}>
+                                    <Typography variant="subtitle2" gutterBottom>Crediting Categorization (Eligibility)</Typography>
+                                    <Grid container spacing={2} alignItems="center" mb={2}>
+                                        <Grid item xs={3}>
+                                            <Select fullWidth size="small" displayEmpty value={newEligibility.degree} onChange={e=>setNewEligibility({...newEligibility, degree: e.target.value})}>
+                                                <MenuItem value="" disabled>Degree</MenuItem>
+                                                {DEGREES.map(d=><MenuItem key={d} value={d}>{d}</MenuItem>)}
+                                            </Select>
+                                        </Grid>
+                                        <Grid item xs={3}>
+                                            <Select fullWidth size="small" displayEmpty value={newEligibility.department} onChange={e=>setNewEligibility({...newEligibility, department: e.target.value})}>
+                                                <MenuItem value="" disabled>Dept</MenuItem>
+                                                {DEPARTMENTS.map(d=><MenuItem key={d} value={d}>{d}</MenuItem>)}
+                                            </Select>
+                                        </Grid>
+                                        <Grid item xs={3}>
+                                             <TextField fullWidth size="small" placeholder="Years (e.g. 2023)" value={newEligibility.entryYears} onChange={e=>setNewEligibility({...newEligibility, entryYears: e.target.value})} />
+                                        </Grid>
+                                        <Grid item xs={3}>
+                                            <Button variant="contained" size="small" onClick={handleAddEligibility}>Add</Button>
+                                        </Grid>
+                                    </Grid>
+                                    
+                                    <Table size="small">
+                                        <TableHead><TableRow><TableCell>Degree</TableCell><TableCell>Dept</TableCell><TableCell>Years</TableCell><TableCell>Action</TableCell></TableRow></TableHead>
+                                        <TableBody>
+                                            {eligibilityList.map((el, i) => (
+                                                <TableRow key={i}>
+                                                    <TableCell>{el.degree}</TableCell>
+                                                    <TableCell>{el.department}</TableCell>
+                                                    <TableCell>{el.entryYears.join(',')}</TableCell>
+                                                    <TableCell><Button size="small" color="error" onClick={()=>handleDeleteEligibility(i)}>Del</Button></TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </Box>
+
+                                <Box mt={3}>
+                                    <Button variant="contained" size="large" onClick={handleFloatSubmit}>Float Course</Button>
+                                </Box>
+                            </Paper>
+                        </Container>
+                    )}
+
 
             {/* Tab 3: Help */}
             {activeTab === 3 && (

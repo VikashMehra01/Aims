@@ -129,16 +129,19 @@ const StudentDashboard = () => {
     };
 
     // Filter Logic
-    const currentYear = new Date().getFullYear(); // 2026
     const filteredCourses = courses.filter(course => {
-        // Exclude past years (e.g., 2025 and earlier) from Enrollment options
-        // Assuming current academic cycle starts 2026.
+        const dept = (course.department || '').toLowerCase();
+        const code = (course.code || '').toLowerCase();
+        const title = (course.title || '').toLowerCase();
+        const semester = (course.semester || '').toString();
+        const instructor = (course.instructor?.name || '').toLowerCase();
+
         return (
-            (filters.department === '' || course.department.toLowerCase().includes(filters.department.toLowerCase())) &&
-            (filters.code === '' || course.code.toLowerCase().includes(filters.code.toLowerCase())) &&
-            (filters.title === '' || course.title.toLowerCase().includes(filters.title.toLowerCase())) &&
-            (filters.semester === '' || course.semester.toString().includes(filters.semester)) &&
-            (filters.instructor === '' || (course.instructor?.name || '').toLowerCase().includes(filters.instructor.toLowerCase()))
+            (filters.department === '' || dept.includes(filters.department.toLowerCase())) &&
+            (filters.code === '' || code.includes(filters.code.toLowerCase())) &&
+            (filters.title === '' || title.includes(filters.title.toLowerCase())) &&
+            (filters.semester === '' || semester.includes(filters.semester)) &&
+            (filters.instructor === '' || instructor.includes(filters.instructor.toLowerCase()))
         );
     });
 
@@ -208,7 +211,8 @@ const StudentDashboard = () => {
                 <Stack spacing={3}>
                     {Object.keys(groupedRegistrations).length === 0 ? (
                         <Paper sx={{ p: 4, textAlign: 'center' }}>
-                            <Typography color="textSecondary">No records found. Go to "Course Enrollment" to register.</Typography>
+                            <Typography color="textSecondary" sx={{ mb: 2 }}>No records found. Go to "Course Enrollment" to register.</Typography>
+                            <Button variant="contained" onClick={() => setActiveTab(1)}>Go to Course Enrollment</Button>
                         </Paper>
                     ) : (
                         Object.entries(groupedRegistrations).sort().reverse().map(([session, regs]) => (

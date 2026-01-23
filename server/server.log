@@ -1,0 +1,28 @@
+nohup: ignoring input
+
+> server@1.0.0 start
+> node index.js
+
+[dotenv@17.2.3] injecting env (4) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+MongoDB Connected
+Server started on port 5000
+Login Request Body: { email: 'admin@aims.com', password: 'admin123' }
+Checking Admin: admin@aims.com admin123
+Login Request Body: { email: '2023csb1172+s1@iitrpr.ac.in', password: '1234' }
+Checking Admin: 2023csb1172+s1@iitrpr.ac.in 1234
+--------------------------------------------------
+[EMAIL SERVICE] Sending OTP to 2023csb1172+s1@iitrpr.ac.in
+[EMAIL SERVICE] Your OTP is: 962750
+--------------------------------------------------
+Login Request Body: { email: '2023csb1172+s1@iitrpr.ac.in', password: '1234' }
+Checking Admin: 2023csb1172+s1@iitrpr.ac.in 1234
+--------------------------------------------------
+[EMAIL SERVICE] Sending OTP to 2023csb1172+s1@iitrpr.ac.in
+[EMAIL SERVICE] Your OTP is: 666350
+--------------------------------------------------
+Login Request Body: { email: 'admin@aims.com', password: 'admin123' }
+Checking Admin: admin@aims.com admin123
+GET /:courseId/registrations request
+Params: [Object: null prototype] { courseId: '6973870a65885a25c8ca5827' }
+User: 697386c265885a25c8ca5814
+Course Instructor: new ObjectId('697386c265885a25c8ca5814')

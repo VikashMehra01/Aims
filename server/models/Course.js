@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const courseSchema = new mongoose.Schema({
-    code: { type: String, required: true, unique: true }, // e.g., CS101
+    code: { type: String, required: true }, // e.g., CS101
     title: { type: String, required: true },
     department: { type: String, required: true },
     instructor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -14,6 +14,20 @@ const courseSchema = new mongoose.Schema({
     semester: { type: String, required: true }, // e.g., "Monsoon 2024"
     year: { type: String, required: true },
 
+    // New Float Fields
+    status: { type: String, enum: ['Proposed', 'Approved', 'Rejected'], default: 'Proposed' },
+    
+    eligibility: [{
+        degree: String,
+        department: String,
+        category: String,
+        entryYears: [String] // e.g. ["2023", "2024"]
+    }],
+
+    coordinators: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Other instructors
+    section: { type: String }, // e.g. "A", "B"
+    slot: { type: String }, // e.g. "C1", "A2"
+    
     // Enrollment Controls
     enrollmentDeadline: {
         type: Date,
@@ -21,5 +35,8 @@ const courseSchema = new mongoose.Schema({
     },
     isEnrollmentOpen: { type: Boolean, default: true }
 }, { timestamps: true });
+
+// Ensure unique course offering per semester/year/section
+courseSchema.index({ code: 1, semester: 1, year: 1, section: 1 }, { unique: true });
 
 module.exports = mongoose.model('Course', courseSchema);
