@@ -49,7 +49,7 @@ const Navbar = (props) => {
     };
 
     const getRoleColor = (role) => {
-        switch(role) {
+        switch (role) {
             case 'admin': return 'error';
             case 'instructor': return 'success';
             case 'faculty_advisor': return 'warning';
@@ -59,7 +59,7 @@ const Navbar = (props) => {
     };
 
     const getRoleLabel = (role) => {
-        switch(role) {
+        switch (role) {
             case 'faculty_advisor': return 'Faculty Advisor';
             default: return role.charAt(0).toUpperCase() + role.slice(1);
         }
@@ -67,10 +67,10 @@ const Navbar = (props) => {
 
     return (
         <HideOnScroll {...props}>
-            <AppBar 
-                position="sticky" 
+            <AppBar
+                position="sticky"
                 elevation={0}
-                sx={{ 
+                sx={{
                     background: 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
                     backdropFilter: 'blur(20px)',
                     borderBottom: '2px solid rgba(99, 102, 241, 0.15)',
@@ -84,10 +84,10 @@ const Navbar = (props) => {
                 <Toolbar sx={{ justifyContent: 'space-between' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <School sx={{ fontSize: 32, color: 'primary.main' }} />
-                        <Typography 
-                            variant="h5" 
-                            component="div" 
-                            sx={{ 
+                        <Typography
+                            variant="h5"
+                            component="div"
+                            sx={{
                                 fontWeight: 800,
                                 background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
                                 backgroundClip: 'text',
@@ -102,12 +102,12 @@ const Navbar = (props) => {
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Button 
-                            color="inherit" 
-                            component={RouterLink} 
+                        <Button
+                            color="inherit"
+                            component={RouterLink}
                             to="/dashboard"
                             startIcon={<DashboardIcon />}
-                            sx={{ 
+                            sx={{
                                 color: 'text.primary',
                                 fontWeight: 600,
                                 '&:hover': {
@@ -123,18 +123,18 @@ const Navbar = (props) => {
                                 <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
                                     {user.name}
                                 </Typography>
-                                <Chip 
-                                    label={getRoleLabel(user.role)} 
-                                    size="small" 
+                                <Chip
+                                    label={getRoleLabel(user.role)}
+                                    size="small"
                                     color={getRoleColor(user.role)}
-                                    sx={{ 
+                                    sx={{
                                         height: 20,
                                         fontSize: '0.7rem',
                                         fontWeight: 600,
                                     }}
                                 />
                             </Box>
-                            
+
                             <IconButton
                                 size="large"
                                 aria-label="account of current user"
@@ -150,17 +150,17 @@ const Navbar = (props) => {
                                 }}
                             >
                                 {user.pfp ? (
-                                    <Avatar 
-                                        alt={user.name} 
-                                        src={user.pfp} 
-                                        imgProps={{ referrerPolicy: 'no-referrer' }} 
-                                        sx={{ width: 36, height: 36 }} 
+                                    <Avatar
+                                        alt={user.name}
+                                        src={user.pfp}
+                                        imgProps={{ referrerPolicy: 'no-referrer' }}
+                                        sx={{ width: 36, height: 36 }}
                                     />
                                 ) : (
                                     <AccountCircle sx={{ color: 'primary.main', fontSize: 36 }} />
                                 )}
                             </IconButton>
-                            
+
                             <Menu
                                 id="menu-appbar"
                                 anchorEl={anchorEl}
@@ -184,9 +184,9 @@ const Navbar = (props) => {
                                     }
                                 }}
                             >
-                                <MenuItem 
+                                <MenuItem
                                     onClick={() => { handleClose(); navigate('/profile'); }}
-                                    sx={{ 
+                                    sx={{
                                         gap: 1.5,
                                         py: 1.5,
                                         '&:hover': {
@@ -197,9 +197,9 @@ const Navbar = (props) => {
                                     <Person fontSize="small" />
                                     Profile
                                 </MenuItem>
-                                <MenuItem 
+                                <MenuItem
                                     onClick={handleLogout}
-                                    sx={{ 
+                                    sx={{
                                         gap: 1.5,
                                         py: 1.5,
                                         color: 'error.main',

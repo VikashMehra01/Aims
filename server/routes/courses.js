@@ -61,6 +61,104 @@ router.get('/my-registrations', auth, async (req, res) => {
     }
 });
 
+// @route   GET /api/courses/student/academic-record
+// @desc    Get student's complete academic record with grades
+// @access  Student
+router.get('/student/academic-record', auth, async (req, res) => {
+    try {
+        // Get student info
+        const student = await User.findById(req.user.id).select('-password');
+
+        // Get all registrations for student
+        const registrations = await CourseRegistration.find({ student: req.user.id })
+            .populate({
+                path: 'course',
+                populate: { path: 'instructor', select: 'name' }
+            })
+            .sort({ createdAt: 1 });
+
+        // Group by semester
+        const semesterMap = {};
+        registrations.forEach(reg => {
+            const semesterKey = reg.semester || 'Ongoing';
+            if (!semesterMap[semesterKey]) {
+                semesterMap[semesterKey] = [];
+            }
+            semesterMap[semesterKey].push(reg);
+        });
+
+        // Calculate SGPA for each semester and prepare response
+        const gradePoints = { 'A': 10, 'A-': 9, 'B': 8, 'B-': 7, 'C': 6, 'C-': 5, 'D': 4, 'F': 0 };
+        const semesters = [];
+        let totalCredits = 0;
+        let totalGradePoints = 0;
+
+        Object.keys(semesterMap).sort().forEach(semesterName => {
+            const courses = semesterMap[semesterName];
+            let semCredits = 0;
+            let semGradePoints = 0;
+            let creditsEarned = 0;
+
+            const coursesData = courses.map((reg, index) => {
+                const credits = reg.course?.credits?.total || 0;
+                const grade = reg.grade;
+                const gp = grade && gradePoints[grade] !== undefined ? gradePoints[grade] : null;
+
+                if (gp !== null && reg.status === 'Approved') {
+                    semCredits += credits;
+                    semGradePoints += gp * credits;
+                    if (gp >= 4) creditsEarned += credits; // Passing grade
+                }
+
+                return {
+                    sno: index + 1,
+                    code: reg.course?.code || 'N/A',
+                    title: reg.course?.title || 'N/A',
+                    credits: credits,
+                    enrollmentType: reg.type || 'Credit',
+                    enrollmentStatus: reg.status || 'Pending',
+                    courseCategory: reg.courseCategory || 'SC',
+                    grade: grade || '-',
+                    attendance: reg.attendance ? `${reg.attendance}%` : '0%'
+                };
+            });
+
+            const sgpa = semCredits > 0 ? (semGradePoints / semCredits).toFixed(2) : '0.00';
+
+            totalCredits += semCredits;
+            totalGradePoints += semGradePoints;
+
+            semesters.push({
+                semesterName,
+                sgpa,
+                creditsRegistered: courses.reduce((sum, r) => sum + (r.course?.credits?.total || 0), 0),
+                creditsEarned,
+                cgpa: totalCredits > 0 ? (totalGradePoints / totalCredits).toFixed(2) : '0.00',
+                courses: coursesData
+            });
+        });
+
+        const cgpa = totalCredits > 0 ? (totalGradePoints / totalCredits).toFixed(2) : '0.00';
+
+        res.json({
+            studentInfo: {
+                name: student.name,
+                rollNumber: student.rollNumber,
+                email: student.email,
+                department: student.department,
+                degree: 'B.Tech', // Could be added to User model
+                yearOfEntry: student.rollNumber?.substring(0, 4) || '2023',
+                currentStatus: 'Registered'
+            },
+            semesters,
+            cgpa
+        });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // @route   GET /api/courses/instructor/pending
 // @desc    Get pending registrations for instructor's courses
 // @access  Instructor
@@ -123,9 +221,9 @@ router.post('/float', auth, checkRole(['instructor', 'faculty_advisor']), async 
 
         // Check History for Auto-Approval
         // Logic: If this course code was previously floated and Approved, we auto-approve this one.
-        const previousInstance = await Course.findOne({ 
-            code: code, 
-            status: 'Approved' 
+        const previousInstance = await Course.findOne({
+            code: code,
+            status: 'Approved'
         });
 
         const initialStatus = previousInstance ? 'Approved' : 'Proposed';
@@ -161,18 +259,18 @@ router.post('/float', auth, checkRole(['instructor', 'faculty_advisor']), async 
 router.get('/history/search', auth, async (req, res) => {
     try {
         const { q } = req.query; // e.g. "CS201"
-        if(!q) return res.json([]);
+        if (!q) return res.json([]);
 
         // Find distinct courses matching code or title
         // We use aggregation to return unique codes to avoid duplicates in dropdown
         const results = await Course.aggregate([
-            { 
-               $match: { 
-                   $or: [
-                       { code: { $regex: q, $options: 'i' } }, 
-                       { title: { $regex: q, $options: 'i' } }
-                   ]
-               } 
+            {
+                $match: {
+                    $or: [
+                        { code: { $regex: q, $options: 'i' } },
+                        { title: { $regex: q, $options: 'i' } }
+                    ]
+                }
             },
             {
                 $group: {
@@ -184,7 +282,7 @@ router.get('/history/search', auth, async (req, res) => {
             },
             { $limit: 10 }
         ]);
-        
+
         // Map back to simpler structure
         const mapped = results.map(r => ({
             code: r._id,
@@ -365,6 +463,60 @@ router.put('/instructor/approve/:id', auth, checkRole(['instructor', 'faculty_ad
 });
 
 
+// @route   PUT /api/courses/instructor/bulk-approve
+// @desc    Instructor bulk approves/rejects multiple registrations
+// @access  Instructor
+router.put('/instructor/bulk-approve', auth, checkRole(['instructor', 'faculty_advisor']), async (req, res) => {
+    try {
+        const { ids, action } = req.body; // ids: array of registration IDs, action: 'approve' or 'reject'
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ msg: 'Please provide registration IDs' });
+        }
+
+        let successCount = 0;
+        let failureCount = 0;
+        const errors = [];
+
+        for (const id of ids) {
+            try {
+                const registration = await CourseRegistration.findById(id);
+
+                if (!registration) {
+                    failureCount++;
+                    errors.push({ id, error: 'Registration not found' });
+                    continue;
+                }
+
+                if (action === 'approve') {
+                    registration.status = 'Pending_FA';
+                    registration.approvedByInstructor = true;
+                } else {
+                    registration.status = 'Rejected';
+                }
+
+                await registration.save();
+                successCount++;
+            } catch (err) {
+                failureCount++;
+                errors.push({ id, error: err.message });
+            }
+        }
+
+        res.json({
+            message: `Bulk ${action} completed`,
+            successCount,
+            failureCount,
+            totalProcessed: ids.length,
+            errors: errors.length > 0 ? errors : undefined
+        });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+
 
 // @route   PUT /api/courses/fa/approve/:id
 // @desc    FA approves/rejects registration
@@ -386,6 +538,60 @@ router.put('/fa/approve/:id', auth, checkRole(['faculty_advisor']), async (req, 
         await registration.save();
         res.json(registration);
     } catch (err) {
+        res.status(500).send('Server Error');
+    }
+});
+
+
+// @route   PUT /api/courses/fa/bulk-approve
+// @desc    FA bulk approves/rejects multiple registrations
+// @access  Faculty Advisor
+router.put('/fa/bulk-approve', auth, checkRole(['faculty_advisor']), async (req, res) => {
+    try {
+        const { ids, action } = req.body; // ids: array of registration IDs, action: 'approve' or 'reject'
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ msg: 'Please provide registration IDs' });
+        }
+
+        let successCount = 0;
+        let failureCount = 0;
+        const errors = [];
+
+        for (const id of ids) {
+            try {
+                const registration = await CourseRegistration.findById(id);
+
+                if (!registration) {
+                    failureCount++;
+                    errors.push({ id, error: 'Registration not found' });
+                    continue;
+                }
+
+                if (action === 'approve') {
+                    registration.status = 'Approved';
+                    registration.approvedByFA = true;
+                } else {
+                    registration.status = 'Rejected';
+                }
+
+                await registration.save();
+                successCount++;
+            } catch (err) {
+                failureCount++;
+                errors.push({ id, error: err.message });
+            }
+        }
+
+        res.json({
+            message: `Bulk ${action} completed`,
+            successCount,
+            failureCount,
+            totalProcessed: ids.length,
+            errors: errors.length > 0 ? errors : undefined
+        });
+    } catch (err) {
+        console.error(err.message);
         res.status(500).send('Server Error');
     }
 });

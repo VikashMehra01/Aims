@@ -14,7 +14,27 @@ const courseRegistrationSchema = new mongoose.Schema({
         default: 'Pending_Instructor'
     },
     approvedByInstructor: { type: Boolean, default: false },
-    approvedByFA: { type: Boolean, default: false }
+    approvedByFA: { type: Boolean, default: false },
+    grade: {
+        type: String,
+        enum: ['A', 'A-', 'B', 'B-', 'C', 'C-', 'D', 'F', 'I', 'W', 'S', 'X', 'NP', null],
+        default: null
+    },
+    attendance: {
+        type: Number,
+        min: 0,
+        max: 100,
+        default: null
+    },
+    semester: {
+        type: String,
+        default: null
+    },
+    courseCategory: {
+        type: String,
+        enum: ['SC', 'HC', 'PC', 'GR', 'OR', 'NC', 'NN'],
+        default: 'SC'
+    }
 }, { timestamps: true });
 
 // Prevent duplicate registration for same course

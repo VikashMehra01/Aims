@@ -26,7 +26,12 @@ import {
     Card,
     CardContent,
     Avatar,
-    Fade
+    Fade,
+    Checkbox,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions
 } from '@mui/material';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ClassIcon from '@mui/icons-material/Class';
@@ -65,7 +70,7 @@ const FacultyDashboard = () => {
     // Enhanced Float State
     const [lookupQuery, setLookupQuery] = useState('');
     const [eligibilityList, setEligibilityList] = useState([]);
-    
+
     // Eligibility Row State
     const [newEligibility, setNewEligibility] = useState({
         degree: '',
@@ -74,14 +79,35 @@ const FacultyDashboard = () => {
         entryYears: ''
     });
 
+    // Course Filter State
+    const [courseFilters, setCourseFilters] = useState({
+        code: '',
+        title: '',
+        department: '',
+        semester: '',
+        section: ''
+    });
+
+    // Student Filter State (for pending requests)
+    const [studentFilters, setStudentFilters] = useState({
+        department: '',
+        year: '',
+        type: ''
+    });
+
+    // Selection State for Bulk Actions
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+    const [bulkAction, setBulkAction] = useState(''); // 'approve' or 'reject'
+
     const DEPARTMENTS = [
         "Computer Science and Engineering",
-        "Electronics and Communication Engineering", 
+        "Electronics and Communication Engineering",
         "Mechanical Engineering",
         "Civil Engineering",
-        "Chemical Engineering", 
+        "Chemical Engineering",
         "Biotechnology",
-        "Mathematics", 
+        "Mathematics",
         "Humanities and Social Sciences"
     ];
 
@@ -99,8 +125,8 @@ const FacultyDashboard = () => {
 
             // Fetch all courses and filter for "my courses" (optimization: backend endpoint would be better)
             const coursesRes = await api.get('/courses');
-            const mine = coursesRes.data.filter(c => 
-                (c.instructor._id === user._id) || 
+            const mine = coursesRes.data.filter(c =>
+                (c.instructor._id === user._id) ||
                 (c.instructor === user._id)
             );
             setMyCourses(mine);
@@ -140,21 +166,21 @@ const FacultyDashboard = () => {
             // In a real app, this would open a dialog with results. 
             // For now, we will just auto-fill if we find an exact match or similar.
             const res = await api.get(`/courses/history/search?q=${floatData.code || floatData.title}`);
-            if(res.data && res.data.length > 0) {
-                 const match = res.data[0];
-                 setFloatData({
-                     ...floatData,
-                     code: match.code,
-                     title: match.title,
-                     department: match.department,
-                     credits: match.credits?.total || 4,
-                     lecture: match.credits?.lecture || 3,
-                     tutorial: match.credits?.tutorial || 0,
-                     practical: match.credits?.practical || 0
-                 });
-                 setMessage({ type: 'success', text: 'Course details auto-filled from history' });
+            if (res.data && res.data.length > 0) {
+                const match = res.data[0];
+                setFloatData({
+                    ...floatData,
+                    code: match.code,
+                    title: match.title,
+                    department: match.department,
+                    credits: match.credits?.total || 4,
+                    lecture: match.credits?.lecture || 3,
+                    tutorial: match.credits?.tutorial || 0,
+                    practical: match.credits?.practical || 0
+                });
+                setMessage({ type: 'success', text: 'Course details auto-filled from history' });
             } else {
-                 setMessage({ type: 'info', text: 'No course history found for this code.' });
+                setMessage({ type: 'info', text: 'No course history found for this code.' });
             }
         } catch (err) {
             console.error(err);
@@ -163,8 +189,8 @@ const FacultyDashboard = () => {
 
     // Eligibility Handlers
     const handleAddEligibility = () => {
-        if(!newEligibility.degree || !newEligibility.department) return;
-        setEligibilityList([...eligibilityList, { ...newEligibility, entryYears: newEligibility.entryYears.split(',').map(y=>y.trim()) }]);
+        if (!newEligibility.degree || !newEligibility.department) return;
+        setEligibilityList([...eligibilityList, { ...newEligibility, entryYears: newEligibility.entryYears.split(',').map(y => y.trim()) }]);
         setNewEligibility({ degree: '', department: '', category: 'Programme Core', entryYears: '' });
     };
 
@@ -181,17 +207,17 @@ const FacultyDashboard = () => {
         try {
             await api.post('/courses/float', {
                 ...floatData,
-                credits: { 
+                credits: {
                     lecture: Number(floatData.lecture),
                     tutorial: Number(floatData.tutorial),
                     practical: Number(floatData.practical),
-                    total: Number(floatData.credits) 
+                    total: Number(floatData.credits)
                 },
                 eligibility: eligibilityList
             });
             setMessage({ type: 'success', text: 'Course floated successfully!' });
             // Reset form
-             setFloatData({
+            setFloatData({
                 code: '',
                 title: '',
                 department: '',
@@ -210,6 +236,112 @@ const FacultyDashboard = () => {
         }
     };
 
+    // Filter courses based on courseFilters
+    const filteredCourses = myCourses.filter(course => {
+        const matchesCode = courseFilters.code === '' ||
+            course.code.toLowerCase().includes(courseFilters.code.toLowerCase());
+        const matchesTitle = courseFilters.title === '' ||
+            course.title.toLowerCase().includes(courseFilters.title.toLowerCase());
+        const matchesDepartment = courseFilters.department === '' ||
+            course.department === courseFilters.department;
+        const matchesSemester = courseFilters.semester === '' ||
+            course.semester.toLowerCase().includes(courseFilters.semester.toLowerCase());
+        const matchesSection = courseFilters.section === '' ||
+            (course.section && course.section.toLowerCase() === courseFilters.section.toLowerCase());
+
+        return matchesCode && matchesTitle && matchesDepartment && matchesSemester && matchesSection;
+    });
+
+    const handleCourseFilterChange = (field, value) => {
+        setCourseFilters({ ...courseFilters, [field]: value });
+    };
+
+    const handleClearCourseFilters = () => {
+        setCourseFilters({
+            code: '',
+            title: '',
+            department: '',
+            semester: '',
+            section: ''
+        });
+    };
+
+    // Extract year from roll number (assumes format like "2023CSB1143" or similar)
+    const extractYearFromRollNumber = (rollNumber) => {
+        if (!rollNumber || rollNumber.length < 4) return '';
+        return rollNumber.substring(0, 4);
+    };
+
+    // Filter students based on studentFilters
+    const filteredPendingRequests = pendingRequests.filter(req => {
+        const matchesDepartment = studentFilters.department === '' ||
+            req.student?.department === studentFilters.department;
+        const studentYear = extractYearFromRollNumber(req.student?.rollNumber);
+        const matchesYear = studentFilters.year === '' ||
+            studentYear === studentFilters.year;
+        const matchesType = studentFilters.type === '' ||
+            req.type === studentFilters.type;
+
+        return matchesDepartment && matchesYear && matchesType;
+    });
+
+    const handleStudentFilterChange = (field, value) => {
+        setStudentFilters({ ...studentFilters, [field]: value });
+    };
+
+    const handleClearStudentFilters = () => {
+        setStudentFilters({
+            department: '',
+            year: '',
+            type: ''
+        });
+    };
+
+    // Selection Handlers
+    const handleSelectAll = (event) => {
+        if (event.target.checked) {
+            setSelectedIds(filteredPendingRequests.map(req => req._id));
+        } else {
+            setSelectedIds([]);
+        }
+    };
+
+    const handleSelectOne = (id) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const handleBulkActionClick = (action) => {
+        setBulkAction(action);
+        setBulkDialogOpen(true);
+    };
+
+    const handleBulkActionConfirm = async () => {
+        try {
+            const response = await api.put('/courses/instructor/bulk-approve', {
+                ids: selectedIds,
+                action: bulkAction
+            });
+
+            setMessage({
+                type: 'success',
+                text: `Successfully ${bulkAction === 'approve' ? 'forwarded' : 'rejected'} ${response.data.successCount} requests`
+            });
+
+            setSelectedIds([]);
+            setBulkDialogOpen(false);
+            fetchData();
+            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+        } catch (err) {
+            setMessage({ type: 'error', text: 'Bulk action failed' });
+        }
+    };
+
+    const handleBulkActionCancel = () => {
+        setBulkDialogOpen(false);
+    };
+
     if (loading) return (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
             <CircularProgress />
@@ -220,9 +352,9 @@ const FacultyDashboard = () => {
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
             <Fade in={true} timeout={600}>
                 <Box>
-                    <Typography 
-                        variant="h4" 
-                        sx={{ 
+                    <Typography
+                        variant="h4"
+                        sx={{
                             fontWeight: 700,
                             mb: 3,
                             background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
@@ -234,9 +366,9 @@ const FacultyDashboard = () => {
                         Faculty Dashboard
                     </Typography>
 
-                    <Paper 
+                    <Paper
                         elevation={0}
-                        sx={{ 
+                        sx={{
                             mb: 3,
                             borderRadius: 2,
                             overflow: 'hidden',
@@ -245,9 +377,9 @@ const FacultyDashboard = () => {
                             border: '1px solid rgba(99, 102, 241, 0.1)',
                         }}
                     >
-                        <Tabs 
-                            value={activeTab} 
-                            onChange={handleTabChange} 
+                        <Tabs
+                            value={activeTab}
+                            onChange={handleTabChange}
                             variant="fullWidth"
                             sx={{
                                 '& .MuiTabs-indicator': {
@@ -277,9 +409,110 @@ const FacultyDashboard = () => {
                     {activeTab === 0 && (
                         <Box>
                             <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>Pending Student Requests</Typography>
-                            <Paper 
+
+                            {/* Student Filter UI */}
+                            <Paper
                                 elevation={0}
-                                sx={{ 
+                                sx={{
+                                    p: 3,
+                                    mb: 3,
+                                    borderRadius: 2,
+                                    background: 'rgba(99, 102, 241, 0.05)',
+                                    border: '1px solid rgba(99, 102, 241, 0.2)',
+                                }}
+                            >
+                                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'primary.main' }}>
+                                    Filter Students
+                                </Typography>
+                                <Grid container spacing={2} alignItems="center">
+                                    <Grid item xs={12} sm={4} md={3}>
+                                        <FormControl fullWidth size="small">
+                                            <InputLabel>Department</InputLabel>
+                                            <Select
+                                                value={studentFilters.department}
+                                                label="Department"
+                                                onChange={(e) => handleStudentFilterChange('department', e.target.value)}
+                                            >
+                                                <MenuItem value="">All</MenuItem>
+                                                {DEPARTMENTS.map(dept => (
+                                                    <MenuItem key={dept} value={dept}>{dept}</MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                    </Grid>
+                                    <Grid item xs={12} sm={4} md={3}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            label="Year of Entry"
+                                            placeholder="e.g. 2023"
+                                            value={studentFilters.year}
+                                            onChange={(e) => handleStudentFilterChange('year', e.target.value)}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={4} md={3}>
+                                        <FormControl fullWidth size="small">
+                                            <InputLabel>Registration Type</InputLabel>
+                                            <Select
+                                                value={studentFilters.type}
+                                                label="Registration Type"
+                                                onChange={(e) => handleStudentFilterChange('type', e.target.value)}
+                                            >
+                                                <MenuItem value="">All</MenuItem>
+                                                <MenuItem value="Credit">Credit</MenuItem>
+                                                <MenuItem value="Audit">Audit</MenuItem>
+                                                <MenuItem value="Minor">Minor</MenuItem>
+                                                <MenuItem value="Concentration">Concentration</MenuItem>
+                                            </Select>
+                                        </FormControl>
+                                    </Grid>
+                                    <Grid item xs={12} sm={4} md={3}>
+                                        <Button
+                                            fullWidth
+                                            variant="outlined"
+                                            size="medium"
+                                            onClick={handleClearStudentFilters}
+                                            sx={{ height: '40px' }}
+                                        >
+                                            Clear Filters
+                                        </Button>
+                                    </Grid>
+                                </Grid>
+                                {(studentFilters.department || studentFilters.year || studentFilters.type) && (
+                                    <Typography variant="caption" sx={{ mt: 2, display: 'block', color: 'text.secondary' }}>
+                                        Showing {filteredPendingRequests.length} of {pendingRequests.length} requests
+                                    </Typography>
+                                )}
+                            </Paper>
+
+                            {/* Bulk Action Buttons */}
+                            {selectedIds.length > 0 && (
+                                <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                        {selectedIds.length} selected
+                                    </Typography>
+                                    <Button
+                                        variant="contained"
+                                        color="success"
+                                        size="small"
+                                        onClick={() => handleBulkActionClick('approve')}
+                                    >
+                                        Approve Selected
+                                    </Button>
+                                    <Button
+                                        variant="contained"
+                                        color="error"
+                                        size="small"
+                                        onClick={() => handleBulkActionClick('reject')}
+                                    >
+                                        Reject Selected
+                                    </Button>
+                                </Box>
+                            )}
+
+                            <Paper
+                                elevation={0}
+                                sx={{
                                     borderRadius: 3,
                                     background: 'rgba(255, 255, 255, 0.98)',
                                     backdropFilter: 'blur(20px)',
@@ -291,6 +524,13 @@ const FacultyDashboard = () => {
                                     <Table>
                                         <TableHead>
                                             <TableRow sx={{ bgcolor: 'rgba(99, 102, 241, 0.08)' }}>
+                                                <TableCell padding="checkbox">
+                                                    <Checkbox
+                                                        checked={filteredPendingRequests.length > 0 && selectedIds.length === filteredPendingRequests.length}
+                                                        indeterminate={selectedIds.length > 0 && selectedIds.length < filteredPendingRequests.length}
+                                                        onChange={handleSelectAll}
+                                                    />
+                                                </TableCell>
                                                 <TableCell sx={{ fontWeight: 700, fontSize: '0.9rem' }}>Student</TableCell>
                                                 <TableCell sx={{ fontWeight: 700, fontSize: '0.9rem' }}>Course</TableCell>
                                                 <TableCell sx={{ fontWeight: 700, fontSize: '0.9rem' }}>Entry No.</TableCell>
@@ -298,18 +538,24 @@ const FacultyDashboard = () => {
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                            {pendingRequests.map((req) => (
-                                                <TableRow 
+                                            {filteredPendingRequests.map((req) => (
+                                                <TableRow
                                                     key={req._id}
-                                                    sx={{ 
-                                                        '&:hover': { 
+                                                    sx={{
+                                                        '&:hover': {
                                                             bgcolor: 'rgba(99, 102, 241, 0.05)',
                                                         },
                                                     }}
                                                 >
+                                                    <TableCell padding="checkbox">
+                                                        <Checkbox
+                                                            checked={selectedIds.includes(req._id)}
+                                                            onChange={() => handleSelectOne(req._id)}
+                                                        />
+                                                    </TableCell>
                                                     <TableCell sx={{ fontWeight: 600 }}>{req.student?.name}</TableCell>
                                                     <TableCell>
-                                                        <Chip 
+                                                        <Chip
                                                             label={req.course?.code}
                                                             size="small"
                                                             sx={{ fontWeight: 600, bgcolor: 'rgba(99, 102, 241, 0.12)' }}
@@ -318,19 +564,19 @@ const FacultyDashboard = () => {
                                                     <TableCell sx={{ color: 'text.secondary' }}>{req.student?.rollNumber}</TableCell>
                                                     <TableCell align="center">
                                                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                                                            <Button 
-                                                                size="small" 
+                                                            <Button
+                                                                size="small"
                                                                 variant="contained"
-                                                                color="success" 
+                                                                color="success"
                                                                 onClick={() => handleAction(req._id, 'approve')}
                                                                 sx={{ minWidth: 90, fontWeight: 600 }}
                                                             >
                                                                 Approve
                                                             </Button>
-                                                            <Button 
-                                                                size="small" 
+                                                            <Button
+                                                                size="small"
                                                                 variant="outlined"
-                                                                color="error" 
+                                                                color="error"
                                                                 onClick={() => handleAction(req._id, 'reject')}
                                                                 sx={{ minWidth: 90, fontWeight: 600 }}
                                                             >
@@ -340,11 +586,13 @@ const FacultyDashboard = () => {
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
-                                            {pendingRequests.length === 0 && (
+                                            {filteredPendingRequests.length === 0 && (
                                                 <TableRow>
-                                                    <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                                                    <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                                                         <Typography color="textSecondary" sx={{ fontWeight: 500 }}>
-                                                            No pending requests.
+                                                            {pendingRequests.length === 0
+                                                                ? 'No pending requests.'
+                                                                : 'No requests match your filters.'}
                                                         </Typography>
                                                     </TableCell>
                                                 </TableRow>
@@ -356,18 +604,147 @@ const FacultyDashboard = () => {
                         </Box>
                     )}
 
+                    {/* Bulk Action Confirmation Dialog */}
+                    <Dialog open={bulkDialogOpen} onClose={handleBulkActionCancel}>
+                        <DialogTitle>
+                            Confirm Bulk {bulkAction === 'approve' ? 'Approval' : 'Rejection'}
+                        </DialogTitle>
+                        <DialogContent>
+                            <Typography>
+                                Are you sure you want to {bulkAction} {selectedIds.length} registration{selectedIds.length > 1 ? 's' : ''}?
+                                {bulkAction === 'approve' && ' They will be forwarded to Faculty Advisor for final approval.'}
+                            </Typography>
+                        </DialogContent>
+                        <DialogActions>
+                            <Button onClick={handleBulkActionCancel}>Cancel</Button>
+                            <Button
+                                onClick={handleBulkActionConfirm}
+                                variant="contained"
+                                color={bulkAction === 'approve' ? 'success' : 'error'}
+                            >
+                                Confirm {bulkAction === 'approve' ? 'Approve' : 'Reject'}
+                            </Button>
+                        </DialogActions>
+                    </Dialog>
+
+
                     {/* Tab 1: My Courses */}
                     {activeTab === 1 && (
                         <Box>
                             <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
                                 My Floated Courses
                             </Typography>
-                            
-                            {myCourses.length === 0 ? (
-                                <Paper 
+
+                            {/* Course Filter UI */}
+                            <Paper
+                                elevation={0}
+                                sx={{
+                                    p: 3,
+                                    mb: 3,
+                                    borderRadius: 2,
+                                    background: 'rgba(99, 102, 241, 0.05)',
+                                    border: '1px solid rgba(99, 102, 241, 0.2)',
+                                }}
+                            >
+                                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'primary.main' }}>
+                                    Filter Courses
+                                </Typography>
+                                <Grid container spacing={2} alignItems="center">
+                                    <Grid item xs={12} sm={6} md={2.4}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            label="Course Code"
+                                            placeholder="e.g. CS101"
+                                            value={courseFilters.code}
+                                            onChange={(e) => handleCourseFilterChange('code', e.target.value)}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6} md={2.4}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            label="Course Title"
+                                            placeholder="e.g. Data Structures"
+                                            value={courseFilters.title}
+                                            onChange={(e) => handleCourseFilterChange('title', e.target.value)}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6} md={2.4}>
+                                        <FormControl fullWidth size="small">
+                                            <InputLabel>Department</InputLabel>
+                                            <Select
+                                                value={courseFilters.department}
+                                                label="Department"
+                                                onChange={(e) => handleCourseFilterChange('department', e.target.value)}
+                                            >
+                                                <MenuItem value="">All</MenuItem>
+                                                {DEPARTMENTS.map(dept => (
+                                                    <MenuItem key={dept} value={dept}>{dept}</MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6} md={2.4}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            label="Semester"
+                                            placeholder="e.g. I, II"
+                                            value={courseFilters.semester}
+                                            onChange={(e) => handleCourseFilterChange('semester', e.target.value)}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6} md={1.2}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            label="Section"
+                                            placeholder="A, B"
+                                            value={courseFilters.section}
+                                            onChange={(e) => handleCourseFilterChange('section', e.target.value)}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6} md={1.2}>
+                                        <Button
+                                            fullWidth
+                                            variant="outlined"
+                                            size="medium"
+                                            onClick={handleClearCourseFilters}
+                                            sx={{ height: '40px' }}
+                                        >
+                                            Clear
+                                        </Button>
+                                    </Grid>
+                                </Grid>
+                                {(courseFilters.code || courseFilters.title || courseFilters.department || courseFilters.semester || courseFilters.section) && (
+                                    <Typography variant="caption" sx={{ mt: 2, display: 'block', color: 'text.secondary' }}>
+                                        Showing {filteredCourses.length} of {myCourses.length} courses
+                                    </Typography>
+                                )}
+                            </Paper>
+
+                            {filteredCourses.length === 0 && myCourses.length > 0 ? (
+                                <Paper
                                     elevation={0}
-                                    sx={{ 
-                                        p: 4, 
+                                    sx={{
+                                        p: 4,
+                                        textAlign: 'center',
+                                        borderRadius: 3,
+                                        background: 'rgba(255, 255, 255, 0.98)',
+                                        backdropFilter: 'blur(20px)',
+                                        border: '1px solid rgba(99, 102, 241, 0.1)',
+                                    }}
+                                >
+                                    <Typography color="textSecondary" sx={{ fontWeight: 500 }}>
+                                        No courses match your filters. Try adjusting the search criteria.
+                                    </Typography>
+                                </Paper>
+                            ) : myCourses.length === 0 ? (
+                                <Paper
+                                    elevation={0}
+                                    sx={{
+                                        p: 4,
                                         textAlign: 'center',
                                         borderRadius: 3,
                                         background: 'rgba(255, 255, 255, 0.98)',
@@ -380,9 +757,9 @@ const FacultyDashboard = () => {
                                     </Typography>
                                 </Paper>
                             ) : (
-                                <Paper 
+                                <Paper
                                     elevation={0}
-                                    sx={{ 
+                                    sx={{
                                         borderRadius: 3,
                                         background: 'rgba(255, 255, 255, 0.98)',
                                         backdropFilter: 'blur(20px)',
@@ -404,11 +781,11 @@ const FacultyDashboard = () => {
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
-                                                {myCourses.map((course, index) => (
-                                                    <TableRow 
+                                                {filteredCourses.map((course, index) => (
+                                                    <TableRow
                                                         key={course._id}
-                                                        sx={{ 
-                                                            '&:hover': { 
+                                                        sx={{
+                                                            '&:hover': {
                                                                 bgcolor: 'rgba(99, 102, 241, 0.05)',
                                                                 cursor: 'pointer',
                                                             },
@@ -416,10 +793,10 @@ const FacultyDashboard = () => {
                                                         }}
                                                     >
                                                         <TableCell>
-                                                            <Chip 
+                                                            <Chip
                                                                 label={course.code}
                                                                 size="small"
-                                                                sx={{ 
+                                                                sx={{
                                                                     fontWeight: 700,
                                                                     backgroundColor: 'rgba(99, 102, 241, 0.12)',
                                                                     color: 'primary.dark',
@@ -429,7 +806,7 @@ const FacultyDashboard = () => {
                                                         <TableCell sx={{ fontWeight: 600 }}>{course.title}</TableCell>
                                                         <TableCell sx={{ color: 'text.secondary' }}>{course.department}</TableCell>
                                                         <TableCell>
-                                                            <Chip 
+                                                            <Chip
                                                                 label={`${course.credits?.total || 0}`}
                                                                 size="small"
                                                                 color="secondary"
@@ -443,7 +820,7 @@ const FacultyDashboard = () => {
                                                                 size="small"
                                                                 endIcon={<VisibilityIcon />}
                                                                 onClick={() => handleViewCourse(course._id)}
-                                                                sx={{ 
+                                                                sx={{
                                                                     transition: 'all 0.3s ease',
                                                                     textTransform: 'none',
                                                                     fontWeight: 600,
@@ -468,7 +845,7 @@ const FacultyDashboard = () => {
                             <Box sx={{ mb: 2 }}>
                                 <Typography variant="h5" fontWeight="bold">Course Offering Details</Typography>
                             </Box>
-                            
+
                             <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '1px solid #ddd' }}>
                                 <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ borderBottom: '2px solid #eee', pb: 1, mb: 3 }}>
                                     Main
@@ -477,31 +854,31 @@ const FacultyDashboard = () => {
                                 <Grid container spacing={4}>
                                     <Grid item xs={12} md={6}>
                                         <Box display="flex" gap={1} mb={3}>
-                                            <TextField 
-                                                fullWidth 
+                                            <TextField
+                                                fullWidth
                                                 size="small"
-                                                label="Course Code & Title" 
-                                                name="code" 
-                                                value={floatData.code} 
-                                                onChange={handleFloatChange} 
+                                                label="Course Code & Title"
+                                                name="code"
+                                                value={floatData.code}
+                                                onChange={handleFloatChange}
                                                 placeholder="e.g. CS201 :: Data Structures"
-                                                required 
+                                                required
                                             />
                                             <Button variant="outlined" onClick={handleLookup}>Lookup</Button>
                                         </Box>
-                                        
+
                                         <Box mb={3}>
-                                            <TextField 
-                                                fullWidth 
-                                                size="small" 
-                                                label="Course Title" 
-                                                name="title" 
-                                                value={floatData.title} 
-                                                onChange={handleFloatChange} 
-                                                required 
+                                            <TextField
+                                                fullWidth
+                                                size="small"
+                                                label="Course Title"
+                                                name="title"
+                                                value={floatData.title}
+                                                onChange={handleFloatChange}
+                                                required
                                             />
                                         </Box>
-                                        
+
                                         {/* Credits */}
                                         <Box mb={3}>
                                             <Typography variant="caption">Credits (L-T-P-C)</Typography>
@@ -536,12 +913,12 @@ const FacultyDashboard = () => {
 
                                         <TextField fullWidth size="small" label="Section" name="section" value={floatData.section || ''} onChange={handleFloatChange} sx={{ mb: 3 }} />
                                         <TextField fullWidth size="small" label="Slot" name="slot" value={floatData.slot || ''} onChange={handleFloatChange} sx={{ mb: 3 }} />
-                                        
+
                                         {/* Coord Table */}
                                         <TableContainer component={Paper} variant="outlined">
                                             <Table size="small">
                                                 <TableHead><TableRow><TableCell>Instructor</TableCell><TableCell>Is Coord</TableCell></TableRow></TableHead>
-                                                <TableBody><TableRow><TableCell>{user.name}</TableCell><TableCell><input type="checkbox" checked disabled/></TableCell></TableRow></TableBody>
+                                                <TableBody><TableRow><TableCell>{user.name}</TableCell><TableCell><input type="checkbox" checked disabled /></TableCell></TableRow></TableBody>
                                             </Table>
                                         </TableContainer>
                                     </Grid>
@@ -552,25 +929,25 @@ const FacultyDashboard = () => {
                                     <Typography variant="subtitle2" gutterBottom>Crediting Categorization (Eligibility)</Typography>
                                     <Grid container spacing={2} alignItems="center" mb={2}>
                                         <Grid item xs={3}>
-                                            <Select fullWidth size="small" displayEmpty value={newEligibility.degree} onChange={e=>setNewEligibility({...newEligibility, degree: e.target.value})}>
+                                            <Select fullWidth size="small" displayEmpty value={newEligibility.degree} onChange={e => setNewEligibility({ ...newEligibility, degree: e.target.value })}>
                                                 <MenuItem value="" disabled>Degree</MenuItem>
-                                                {DEGREES.map(d=><MenuItem key={d} value={d}>{d}</MenuItem>)}
+                                                {DEGREES.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                                             </Select>
                                         </Grid>
                                         <Grid item xs={3}>
-                                            <Select fullWidth size="small" displayEmpty value={newEligibility.department} onChange={e=>setNewEligibility({...newEligibility, department: e.target.value})}>
+                                            <Select fullWidth size="small" displayEmpty value={newEligibility.department} onChange={e => setNewEligibility({ ...newEligibility, department: e.target.value })}>
                                                 <MenuItem value="" disabled>Dept</MenuItem>
-                                                {DEPARTMENTS.map(d=><MenuItem key={d} value={d}>{d}</MenuItem>)}
+                                                {DEPARTMENTS.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                                             </Select>
                                         </Grid>
                                         <Grid item xs={3}>
-                                             <TextField fullWidth size="small" placeholder="Years (e.g. 2023)" value={newEligibility.entryYears} onChange={e=>setNewEligibility({...newEligibility, entryYears: e.target.value})} />
+                                            <TextField fullWidth size="small" placeholder="Years (e.g. 2023)" value={newEligibility.entryYears} onChange={e => setNewEligibility({ ...newEligibility, entryYears: e.target.value })} />
                                         </Grid>
                                         <Grid item xs={3}>
                                             <Button variant="contained" size="small" onClick={handleAddEligibility}>Add</Button>
                                         </Grid>
                                     </Grid>
-                                    
+
                                     <Table size="small">
                                         <TableHead><TableRow><TableCell>Degree</TableCell><TableCell>Dept</TableCell><TableCell>Years</TableCell><TableCell>Action</TableCell></TableRow></TableHead>
                                         <TableBody>
@@ -579,7 +956,7 @@ const FacultyDashboard = () => {
                                                     <TableCell>{el.degree}</TableCell>
                                                     <TableCell>{el.department}</TableCell>
                                                     <TableCell>{el.entryYears.join(',')}</TableCell>
-                                                    <TableCell><Button size="small" color="error" onClick={()=>handleDeleteEligibility(i)}>Del</Button></TableCell>
+                                                    <TableCell><Button size="small" color="error" onClick={() => handleDeleteEligibility(i)}>Del</Button></TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -594,38 +971,38 @@ const FacultyDashboard = () => {
                     )}
 
 
-            {/* Tab 3: Help */}
-            {activeTab === 3 && (
-                <HelpTab />
-            )}
+                    {/* Tab 3: Help */}
+                    {activeTab === 3 && (
+                        <HelpTab />
+                    )}
 
                     {/* Tab 4: Profile */}
                     {activeTab === 4 && (
                         <Container maxWidth="sm">
-                            <Card 
+                            <Card
                                 elevation={0}
-                                sx={{ 
+                                sx={{
                                     borderRadius: 3,
                                     background: 'rgba(255, 255, 255, 0.98)',
                                     backdropFilter: 'blur(20px)',
                                     border: '1px solid rgba(99, 102, 241, 0.1)',
                                 }}
                             >
-                        <CardContent sx={{ textAlign: 'center', py: 5 }}>
-                            <Avatar 
-                                src={user.pfp} 
-                                sx={{ width: 100, height: 100, margin: '0 auto', mb: 2 }} 
-                            />
-                            <Typography variant="h5" fontWeight="bold">{user.name.toUpperCase()}</Typography>
-                            <Typography color="textSecondary" gutterBottom>{user.role.toUpperCase()}</Typography>
-                            <Box mt={3} textAlign="left">
-                                <Typography><strong>EMAIL:</strong> {user.email}</Typography>
-                                <Typography sx={{ mt: 1 }}><strong>DEPARTMENT:</strong> {user.department || 'N/A'}</Typography>
-                                {user.rollNumber && <Typography sx={{ mt: 1 }}><strong>ENTRY NO:</strong> {user.rollNumber}</Typography>}
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Container>
+                                <CardContent sx={{ textAlign: 'center', py: 5 }}>
+                                    <Avatar
+                                        src={user.pfp}
+                                        sx={{ width: 100, height: 100, margin: '0 auto', mb: 2 }}
+                                    />
+                                    <Typography variant="h5" fontWeight="bold">{user.name.toUpperCase()}</Typography>
+                                    <Typography color="textSecondary" gutterBottom>{user.role.toUpperCase()}</Typography>
+                                    <Box mt={3} textAlign="left">
+                                        <Typography><strong>EMAIL:</strong> {user.email}</Typography>
+                                        <Typography sx={{ mt: 1 }}><strong>DEPARTMENT:</strong> {user.department || 'N/A'}</Typography>
+                                        {user.rollNumber && <Typography sx={{ mt: 1 }}><strong>ENTRY NO:</strong> {user.rollNumber}</Typography>}
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Container>
                     )}
                 </Box>
             </Fade>
