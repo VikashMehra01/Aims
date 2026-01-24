@@ -1,0 +1,5 @@
+{
+  "ignore": ["*.log", "email_debug.log"],
+  "watch": ["."],
+  "ext": "js,json,env"
+}

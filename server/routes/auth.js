@@ -5,13 +5,13 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// Local Register
+// Local Register Step 1: Validate & Send OTP (No DB Creation yet)
 router.post('/register', async (req, res) => {
     try {
         const { name, email, password, department, degree, yearOfEntry, googleId } = req.body;
         let { rollNumber } = req.body;
 
-        // Ensure rollNumber is undefined if empty string (to satisfy sparse unique index)
+        // Ensure rollNumber is undefined if empty string
         if (!rollNumber || rollNumber.trim() === '') {
             rollNumber = undefined;
         }
@@ -20,6 +20,10 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ msg: 'Only @iitrpr.ac.in emails are allowed' });
         }
 
+        // Check if user ALREADY exists in DB
+        let user = await User.findOne({ email });
+        if (user) return res.status(400).json({ msg: 'User already exists' });
+
         // Determine Role
         let role = 'student';
         if (req.body.role === 'faculty') {
@@ -27,7 +31,6 @@ router.post('/register', async (req, res) => {
         } else if (req.body.role === 'student') {
             role = 'student';
         } else {
-            // Fallback to legacy email detection if no role provided (or invalid)
             if (email === 'facultyadvisor@iitrpr.ac.in') {
                 role = 'faculty_advisor';
             } else if (/^[a-zA-Z]/.test(email)) {
@@ -35,72 +38,100 @@ router.post('/register', async (req, res) => {
             }
         }
 
-        let user = await User.findOne({ email });
-        if (user) return res.status(400).json({ msg: 'User already exists' });
-
-        // Generate OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
+        // Hash Password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        user = new User({
-            name,
-            rollNumber,
-            email,
-            password: hashedPassword,
-            department,
-            degree,
-            yearOfEntry,
-            pfp: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
-            role,
-            otp,
-            otpExpires,
-            isVerified: false,
-            googleId // Save Google ID if provided
-        });
+        // Generate OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // Create Temporary Registration Token (Valid for 10 mins)
+        // We store all the user data INSIDE this token so we don't need a DB record yet
+        const tempPayload = {
+            userData: {
+                name,
+                rollNumber,
+                email,
+                password: hashedPassword, // Store hashed password
+                department,
+                degree,
+                yearOfEntry,
+                role,
+                googleId,
+                pfp: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
+            },
+            otp
+        };
 
-        await user.save();
+        const registrationToken = jwt.sign(
+            tempPayload, 
+            process.env.JWT_SECRET || 'secret', 
+            { expiresIn: '10m' }
+        );
 
         // Send OTP
-        await sendOTP(email, otp);
+        const emailSent = await sendOTP(email, otp);
+        
+        if (!emailSent) {
+             return res.status(500).json({ msg: 'Failed to send OTP email' });
+        }
 
-        res.json({ msg: 'Registration successful. OTP sent to email.', email });
+        res.json({ 
+            msg: 'OTP sent to email', 
+            email, 
+            registrationToken // Client must send this back with OTP
+        });
 
     } catch (err) {
         console.error('=== REGISTRATION ERROR ===');
-        console.error('Message:', err.message);
-        console.error('Stack:', err.stack);
+        console.error(err);
         res.status(500).json({ msg: 'Server error', error: err.message });
     }
 });
 
-// Verify Registration OTP
+// Verify Registration OTP & Finalize Account Creation
 router.post('/verify-registration', async (req, res) => {
     try {
-        const { email, otp } = req.body;
+        const { otp, registrationToken } = req.body;
 
-        let user = await User.findOne({ email });
-        if (!user) return res.status(400).json({ msg: 'User not found' });
-
-        if (user.isVerified) {
-            return res.status(400).json({ msg: 'User already verified. Please login.' });
+        if (!registrationToken) {
+            return res.status(400).json({ msg: 'Missing registration session' });
         }
 
-        if (user.otp !== otp || user.otpExpires < Date.now()) {
-            return res.status(400).json({ msg: 'Invalid or expired OTP' });
+        // Verify and Decode the Registration Token
+        let decoded;
+        try {
+            decoded = jwt.verify(registrationToken, process.env.JWT_SECRET || 'secret');
+        } catch (e) {
+            return res.status(400).json({ msg: 'Registration session expired or invalid. Please sign up again.' });
         }
 
-        user.isVerified = true;
-        user.otp = undefined;
-        user.otpExpires = undefined;
-        await user.save();
+        const { userData, otp: correctOtp } = decoded;
 
-        const payload = { user: { id: user.id, role: user.role } };
+        // Verify OTP
+        if (String(otp) !== String(correctOtp)) {
+            return res.status(400).json({ msg: 'Invalid OTP' });
+        }
+
+        // Double check if user exists (in case they verified in another window?)
+        let existingUser = await User.findOne({ email: userData.email });
+        if (existingUser) {
+             return res.status(400).json({ msg: 'User already registered' });
+        }
+
+        // === CREATE USER NOW ===
+        const newUser = new User({
+            ...userData,
+            isVerified: true // Auto-verified since they passed OTP check
+        });
+
+        await newUser.save();
+
+        // Generate Login Token
+        const payload = { user: { id: newUser.id, role: newUser.role } };
         jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' }, (err, token) => {
             if (err) throw err;
-            res.json({ token, user: { name: user.name, role: user.role } });
+            res.json({ token, user: { name: newUser.name, role: newUser.role } });
         });
 
     } catch (err) {

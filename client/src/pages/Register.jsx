@@ -63,6 +63,8 @@ const Register = () => {
         setFormData({ ...formData, [name]: value });
     };
 
+    const [registrationToken, setRegistrationToken] = useState(null);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -96,7 +98,7 @@ const Register = () => {
                 let roleToSend = role;
                 if (role === 'faculty') roleToSend = 'faculty';
 
-                await axios.post(`${apiUrl}/auth/register`, {
+                const res = await axios.post(`${apiUrl}/auth/register`, {
                     name: formData.name,
                     rollNumber: formData.rollNumber,
                     email: formData.email,
@@ -107,6 +109,9 @@ const Register = () => {
                     googleId: formData.googleId, // Send googleId if present
                     role: roleToSend
                 });
+                
+                // Store registration token for step 2
+                setRegistrationToken(res.data.registrationToken);
                 
                 setAuthStep('otp');
                 setError('');
@@ -119,8 +124,9 @@ const Register = () => {
             // Verify OTP
             try {
                 const res = await axios.post(`${apiUrl}/auth/verify-registration`, {
-                    email: formData.email,
-                    otp
+                    email: formData.email, // Kept for consistency, but token actually has the data
+                    otp,
+                    registrationToken // New: Send the token back
                 });
                 // Login immediately
                 login(res.data.token);

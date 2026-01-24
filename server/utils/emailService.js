@@ -1,18 +1,46 @@
 const nodemailer = require('nodemailer');
+const fs = require('fs');
+
+const logToFile = (msg) => {
+    const logMsg = `[${new Date().toISOString()}] ${msg}\n`;
+    try {
+        fs.appendFileSync('email_debug.log', logMsg);
+    } catch (e) {
+        // ignore
+    }
+};
+
+// Create Reusable Transporter with Pooling
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    pool: true, // Keep connections open for faster subsequent sends
+    maxConnections: 5,
+    maxMessages: 100,
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+// Verify connection configuration
+transporter.verify(function (error, success) {
+    if (error) {
+        const msg = `[EMAIL SERVICE] Connection Error: ${error}`;
+        console.log(msg);
+        logToFile(msg);
+    } else {
+        const msg = '[EMAIL SERVICE] Server is ready to take our messages';
+        console.log(msg);
+        logToFile(msg);
+    }
+});
 
 // Send OTP via Email
 const sendOTP = async (email, otp) => {
     try {
-        // Create Transporter
-        // Note: For Gmail, user needs 'App Password', regular password won't work with 2FA
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
-
+        logToFile(`Attempting to send OTP to ${email}`);
+        logToFile(`DEBUG MODE: The OTP is ${otp}`); // Added for debugging
+        
         // Email Configuration
         const mailOptions = {
             from: process.env.EMAIL_USER,
@@ -33,14 +61,21 @@ const sendOTP = async (email, otp) => {
 
         // Send Email
         const info = await transporter.sendMail(mailOptions);
-        console.log(`[EMAIL SERVICE] Email sent: ${info.response}`);
+        const successMsg = `[EMAIL SERVICE] Email sent: ${info.response}`;
+        console.log(successMsg);
+        logToFile(successMsg);
         return true;
     } catch (error) {
-        console.error('[EMAIL SERVICE] Error sending email:', error);
+        const errorMsg = `[EMAIL SERVICE] Error sending email: ${error}`;
+        console.error(errorMsg);
+        logToFile(errorMsg);
+        
         // Fallback to console log if email fails (for development safety)
         console.log('--------------------------------------------------');
         console.log(`[EMAIL SERVICE] FALLBACK: OTP for ${email} is ${otp}`);
         console.log('--------------------------------------------------');
+        
+        logToFile(`FALLBACK OTP: ${otp}`);
         return false;
     }
 };
