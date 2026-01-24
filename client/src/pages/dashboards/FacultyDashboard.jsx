@@ -420,9 +420,9 @@ const FacultyDashboard = () => {
                                 <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'primary.main' }}>
                                     Filter Students
                                 </Typography>
-                                <Grid container spacing={2} alignItems="center">
-                                    <Grid item xs={12} sm={4} md={3}>
-                                        <FormControl fullWidth size="small" sx={{ minWidth: 150 }}>
+                                <Grid container spacing={3} alignItems="stretch">
+                                    <Grid item xs={12} xl={3}>
+                                        <FormControl fullWidth>
                                             <InputLabel shrink>Department</InputLabel>
                                             <Select
                                                 value={studentFilters.department}
@@ -430,27 +430,29 @@ const FacultyDashboard = () => {
                                                 onChange={(e) => handleStudentFilterChange('department', e.target.value)}
                                                 displayEmpty
                                             >
-                                                <MenuItem value="" disabled>Select Department</MenuItem>
-                                                <MenuItem value="">All</MenuItem>
+                                                <MenuItem value="">All Departments</MenuItem>
                                                 {DEPARTMENTS.map(dept => (
                                                     <MenuItem key={dept} value={dept}>{dept}</MenuItem>
                                                 ))}
                                             </Select>
                                         </FormControl>
                                     </Grid>
-                                    <Grid item xs={12} sm={4} md={3}>
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            label="Year of Entry"
-                                            placeholder="e.g. 2023"
-                                            value={studentFilters.year}
-                                            onChange={(e) => handleStudentFilterChange('year', e.target.value)}
-                                            InputLabelProps={{ shrink: true }}
-                                        />
+                                    <Grid item xs={12} xl={3}>
+                                        <FormControl fullWidth>
+                                            <InputLabel>Year of Entry</InputLabel>
+                                            <Select value={studentFilters.year} label="Year of Entry" onChange={(e) => handleStudentFilterChange('year', e.target.value)}>
+                                                <MenuItem value="">All Years</MenuItem>
+                                                <MenuItem value="2024">2024</MenuItem>
+                                                <MenuItem value="2023">2023</MenuItem>
+                                                <MenuItem value="2022">2022</MenuItem>
+                                                <MenuItem value="2021">2021</MenuItem>
+                                                <MenuItem value="2020">2020</MenuItem>
+                                                <MenuItem value="2019">2019</MenuItem>
+                                            </Select>
+                                        </FormControl>
                                     </Grid>
-                                    <Grid item xs={12} sm={4} md={3}>
-                                        <FormControl fullWidth size="small" sx={{ minWidth: 150 }}>
+                                    <Grid item xs={12} xl={3}>
+                                        <FormControl fullWidth>
                                             <InputLabel shrink>Registration Type</InputLabel>
                                             <Select
                                                 value={studentFilters.type}
@@ -458,8 +460,7 @@ const FacultyDashboard = () => {
                                                 onChange={(e) => handleStudentFilterChange('type', e.target.value)}
                                                 displayEmpty
                                             >
-                                                <MenuItem value="" disabled>Select Type</MenuItem>
-                                                <MenuItem value="">All</MenuItem>
+                                                <MenuItem value="">All Types</MenuItem>
                                                 <MenuItem value="Credit">Credit</MenuItem>
                                                 <MenuItem value="Audit">Audit</MenuItem>
                                                 <MenuItem value="Minor">Minor</MenuItem>
@@ -467,13 +468,12 @@ const FacultyDashboard = () => {
                                             </Select>
                                         </FormControl>
                                     </Grid>
-                                    <Grid item xs={12} sm={4} md={3}>
+                                    <Grid item xs={12} xl={3}>
                                         <Button
                                             fullWidth
                                             variant="outlined"
-                                            size="medium"
                                             onClick={handleClearStudentFilters}
-                                            sx={{ height: '40px' }}
+                                            sx={{ height: '56px', fontSize: '0.95rem', fontWeight: 600 }}
                                         >
                                             Clear Filters
                                         </Button>
@@ -816,19 +816,25 @@ const FacultyDashboard = () => {
                                                         </TableCell>
                                                         <TableCell sx={{ color: 'text.secondary' }}>{course.semester}</TableCell>
                                                         <TableCell align="right">
-                                                            <Button
-                                                                variant="contained"
-                                                                size="small"
-                                                                endIcon={<VisibilityIcon />}
-                                                                onClick={() => handleViewCourse(course._id)}
-                                                                sx={{
-                                                                    transition: 'all 0.3s ease',
-                                                                    textTransform: 'none',
-                                                                    fontWeight: 600,
-                                                                }}
-                                                            >
-                                                                View Details
-                                                            </Button>
+                                                            {course.status === 'Approved' ? (
+                                                                <Button
+                                                                    variant="contained"
+                                                                    size="small"
+                                                                    endIcon={<VisibilityIcon />}
+                                                                    onClick={() => handleViewCourse(course._id)}
+                                                                    sx={{
+                                                                        transition: 'all 0.3s ease',
+                                                                        textTransform: 'none',
+                                                                        fontWeight: 600,
+                                                                    }}
+                                                                >
+                                                                    View Details
+                                                                </Button>
+                                                            ) : (
+                                                                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                                                    Pending Admin Approval
+                                                                </Typography>
+                                                            )}
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}

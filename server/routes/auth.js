@@ -27,7 +27,7 @@ router.post('/register', async (req, res) => {
         } else if (req.body.role === 'student') {
             role = 'student';
         } else {
-             // Fallback to legacy email detection if no role provided (or invalid)
+            // Fallback to legacy email detection if no role provided (or invalid)
             if (email === 'facultyadvisor@iitrpr.ac.in') {
                 role = 'faculty_advisor';
             } else if (/^[a-zA-Z]/.test(email)) {
@@ -67,7 +67,7 @@ router.post('/register', async (req, res) => {
         await sendOTP(email, otp);
 
         res.json({ msg: 'Registration successful. OTP sent to email.', email });
-        
+
     } catch (err) {
         console.error('=== REGISTRATION ERROR ===');
         console.error('Message:', err.message);
@@ -80,12 +80,12 @@ router.post('/register', async (req, res) => {
 router.post('/verify-registration', async (req, res) => {
     try {
         const { email, otp } = req.body;
-        
+
         let user = await User.findOne({ email });
         if (!user) return res.status(400).json({ msg: 'User not found' });
 
         if (user.isVerified) {
-             return res.status(400).json({ msg: 'User already verified. Please login.' });
+            return res.status(400).json({ msg: 'User already verified. Please login.' });
         }
 
         if (user.otp !== otp || user.otpExpires < Date.now()) {
@@ -149,23 +149,23 @@ router.post('/login', async (req, res) => {
             // But usually UI sends specific 'instructor' or 'faculty_advisor'
             // Let's assume UI sends 'student', 'instructor', 'faculty_advisor' or 'admin' 
             // OR maybe UI just sends 'faculty' and we check if user is instructor or FA?
-            
+
             // Re-reading usage: user said "choose as faculty or student". 
             // If user selects "Faculty", they might be 'instructor' or 'faculty_advisor'.
             if (role === 'faculty') {
                 if (!['instructor', 'faculty_advisor'].includes(user.role)) {
-                     return res.status(400).json({ msg: 'Account does not have Faculty privileges' });
+                    return res.status(400).json({ msg: 'Account does not have Faculty privileges' });
                 }
             } else if (role !== user.role) {
-                 // specific role check
-                 // If user is 'faculty_advisor' and selects 'instructor' (if they are separate options?), FA is also an instructor. 
-                 // But let's stick to strict match or mapped match.
-                 // For now, let's trust the UI sends mapped values or simply:
-                 if (role === 'student' && user.role !== 'student') {
-                     return res.status(400).json({ msg: 'Invalid role selected for this account' });
-                 }
-                 // If user is FA, allow 'instructor' login?
-                 // Let's keep it simple: If role is provided, user.role must match, OR user.role must be compatible.
+                // specific role check
+                // If user is 'faculty_advisor' and selects 'instructor' (if they are separate options?), FA is also an instructor. 
+                // But let's stick to strict match or mapped match.
+                // For now, let's trust the UI sends mapped values or simply:
+                if (role === 'student' && user.role !== 'student') {
+                    return res.status(400).json({ msg: 'Invalid role selected for this account' });
+                }
+                // If user is FA, allow 'instructor' login?
+                // Let's keep it simple: If role is provided, user.role must match, OR user.role must be compatible.
             }
         }
 
@@ -174,8 +174,10 @@ router.post('/login', async (req, res) => {
 
         // Login Success - No OTP
         const payload = { user: { id: user.id, role: user.role } };
+        console.log('LOGIN - Creating JWT with payload:', JSON.stringify(payload));
         jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' }, (err, token) => {
             if (err) throw err;
+            console.log('LOGIN - JWT created successfully');
             res.json({ token, user: { name: user.name, rollNumber: user.rollNumber, pfp: user.pfp, role: user.role } });
         });
 
@@ -186,12 +188,12 @@ router.post('/login', async (req, res) => {
 });
 
 // Google Auth
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'], prompt: 'select_account' }));
 
 router.get('/google/callback', (req, res, next) => {
     passport.authenticate('google', { session: false }, (err, user, info) => {
         if (err) return next(err);
-        
+
         // If user not found, it means they need to register
         if (!user) {
             if (info && info.profile) {
@@ -205,9 +207,11 @@ router.get('/google/callback', (req, res, next) => {
         }
 
         // Login Success
-        const payload = { user: { id: user.id } };
+        const payload = { user: { id: user.id, role: user.role } };
+        console.log('GOOGLE AUTH - Creating JWT with payload:', JSON.stringify(payload));
         jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' }, (err, token) => {
             if (err) throw err;
+            console.log('GOOGLE AUTH - JWT created successfully');
             res.redirect(`http://localhost:5173/login?token=${token}`);
         });
     })(req, res, next);

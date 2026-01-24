@@ -273,21 +273,21 @@ const StudentDashboard = () => {
                             <Box sx={{ flexGrow: 1 }} />
                             <Button startIcon={<RestartAltIcon />} size="small" onClick={clearFilters}>Reset Filters</Button>
                         </Box>
-                        <Grid container spacing={2}>
-                            <Grid item xs={12} sm={6} md={2}>
-                                <TextField fullWidth size="small" label="Department" name="department" value={filters.department} onChange={handleFilterChange} placeholder="e.g. CSE" />
+                        <Grid container spacing={3}>
+                            <Grid item xs={12} md={6} lg={4} xl={2.4}>
+                                <TextField fullWidth label="Department" name="department" value={filters.department} onChange={handleFilterChange} placeholder="e.g. CSE" />
                             </Grid>
-                            <Grid item xs={12} sm={6} md={2}>
-                                <TextField fullWidth size="small" label="Course Code" name="code" value={filters.code} onChange={handleFilterChange} />
+                            <Grid item xs={12} md={6} lg={4} xl={2.4}>
+                                <TextField fullWidth label="Course Code" name="code" value={filters.code} onChange={handleFilterChange} />
                             </Grid>
-                            <Grid item xs={12} sm={6} md={3}>
-                                <TextField fullWidth size="small" label="Title" name="title" value={filters.title} onChange={handleFilterChange} />
+                            <Grid item xs={12} md={6} lg={4} xl={2.4}>
+                                <TextField fullWidth label="Title" name="title" value={filters.title} onChange={handleFilterChange} />
                             </Grid>
-                            <Grid item xs={12} sm={6} md={2}>
-                                <TextField fullWidth size="small" label="Instructor" name="instructor" value={filters.instructor} onChange={handleFilterChange} />
+                            <Grid item xs={12} md={6} lg={4} xl={2.4}>
+                                <TextField fullWidth label="Instructor" name="instructor" value={filters.instructor} onChange={handleFilterChange} />
                             </Grid>
-                            <Grid item xs={12} sm={6} md={2}>
-                                <FormControl fullWidth size="small">
+                            <Grid item xs={12} md={6} lg={4} xl={2.4}>
+                                <FormControl fullWidth>
                                     <InputLabel>Session</InputLabel>
                                     <Select name="semester" value={filters.semester} label="Session" onChange={handleFilterChange}>
                                         <MenuItem value="">All</MenuItem>

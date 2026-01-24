@@ -11,7 +11,9 @@ const auth = (req, res, next) => {
     if (!token) return res.status(401).json({ msg: 'No token, authorization denied' });
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+        console.log('AUTH MIDDLEWARE - Decoded JWT:', JSON.stringify(decoded));
         req.user = decoded.user;
+        console.log('AUTH MIDDLEWARE - req.user set to:', JSON.stringify(req.user));
         next();
     } catch (err) {
         res.status(401).json({ msg: 'Token is not valid' });
@@ -21,8 +23,12 @@ const auth = (req, res, next) => {
 // Middleware to check role
 const checkRole = (roles) => async (req, res, next) => {
     try {
-        const user = await User.findById(req.user.id);
-        if (!roles.includes(user.role)) {
+        // Use role from JWT token to avoid ObjectId issues with admin-id
+        if (!req.user || !req.user.role) {
+            return res.status(403).json({ msg: 'Access denied - no role found' });
+        }
+
+        if (!roles.includes(req.user.role)) {
             return res.status(403).json({ msg: 'Access denied' });
         }
         next();
@@ -36,7 +42,15 @@ const checkRole = (roles) => async (req, res, next) => {
 // @access  Private
 router.get('/', auth, async (req, res) => {
     try {
-        const courses = await Course.find().populate('instructor', 'name');
+        // Students only see approved courses
+        // Faculty and admin see all courses
+        // Use role from JWT token to avoid ObjectId issues with admin-id
+        console.log('GET /courses - User role:', req.user.role);
+        const filter = req.user.role === 'student' ? { status: 'Approved' } : {};
+        console.log('GET /courses - Filter:', JSON.stringify(filter));
+
+        const courses = await Course.find(filter).populate('instructor', 'name');
+        console.log(`GET /courses - Returning ${courses.length} courses for role: ${req.user.role}`);
         res.json(courses);
     } catch (err) {
         console.error(err.message);
@@ -254,12 +268,12 @@ router.post('/float', auth, checkRole(['instructor', 'faculty_advisor']), async 
             isEnrollmentOpen: true,
             status: initialStatus,
             section: section || 'A', // Default to 'A' if not provided to avoid null unique index issues? Or keep undefined? 
-                                     // Better to check if course exists first.
+            // Better to check if course exists first.
             slot,
             eligibility: eligibility || [],
             coordinators: coordinators || []
         });
-        
+
         // Handle Section - if undefined, unique index on {code, sem, year, section} treats null as value.
         // If user floats same course twice without section, it crashes.
         // Let's rely on catch block for duplicates.
@@ -693,6 +707,46 @@ router.delete('/:id', auth, checkRole(['admin']), async (req, res) => {
         if (!result) return res.status(404).json({ msg: 'Course not found' });
 
         res.json({ msg: 'Course removed' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   PUT /api/courses/:id/approve
+// @desc    Approve a proposed course
+// @access  Admin
+router.put('/:id/approve', auth, checkRole(['admin']), async (req, res) => {
+    try {
+        const course = await Course.findByIdAndUpdate(
+            req.params.id,
+            { status: 'Approved' },
+            { new: true }
+        ).populate('instructor', 'name');
+
+        if (!course) return res.status(404).json({ msg: 'Course not found' });
+
+        res.json(course);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   PUT /api/courses/:id/reject
+// @desc    Reject a proposed course
+// @access  Admin
+router.put('/:id/reject', auth, checkRole(['admin']), async (req, res) => {
+    try {
+        const course = await Course.findByIdAndUpdate(
+            req.params.id,
+            { status: 'Rejected' },
+            { new: true }
+        ).populate('instructor', 'name');
+
+        if (!course) return res.status(404).json({ msg: 'Course not found' });
+
+        res.json(course);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');

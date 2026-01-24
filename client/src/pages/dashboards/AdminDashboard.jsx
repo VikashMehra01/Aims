@@ -44,6 +44,7 @@ const AdminDashboard = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState(0);
     const [userTab, setUserTab] = useState(0); // 0: Students, 1: Faculty
+    const [courseSubTab, setCourseSubTab] = useState(0); // 0: Running Courses, 1: New Course Approval
     const [users, setUsers] = useState([]);
     const [courses, setCourses] = useState([]);
     const [helpRequests, setHelpRequests] = useState([]);
@@ -118,7 +119,7 @@ const AdminDashboard = () => {
     const handlePasswordReset = async (userId) => {
         const newPassword = prompt("Enter new password for this user:");
         if (!newPassword) return;
-        
+
         try {
             // Updated to ensure we hit the right endpoint. Assuming general PUT update handles password or we need new route.
             // Since I haven't updated backend, I will use a new specific route I will create in admin.js
@@ -138,6 +139,27 @@ const AdminDashboard = () => {
             setMsg({ type: 'success', text: 'Course deleted' });
         } catch (err) {
             setMsg({ type: 'error', text: 'Failed to delete course' });
+        }
+    };
+
+    const approveCourse = async (id) => {
+        try {
+            const res = await api.put(`/courses/${id}/approve`);
+            setCourses(courses.map(c => c._id === id ? res.data : c));
+            setMsg({ type: 'success', text: 'Course approved successfully' });
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to approve course' });
+        }
+    };
+
+    const rejectCourse = async (id) => {
+        if (!window.confirm('Are you sure you want to reject this course?')) return;
+        try {
+            const res = await api.put(`/courses/${id}/reject`);
+            setCourses(courses.map(c => c._id === id ? res.data : c));
+            setMsg({ type: 'success', text: 'Course rejected' });
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to reject course' });
         }
     };
 
@@ -162,8 +184,8 @@ const AdminDashboard = () => {
             {/* Tab 0: Manage Users */}
             {activeTab === 0 && (
                 <Paper sx={{ mb: 3 }}>
-                     <Tabs 
-                        value={userTab} 
+                    <Tabs
+                        value={userTab}
                         onChange={(e, val) => setUserTab(val)}
                         textColor="primary"
                         indicatorColor="primary"
@@ -195,10 +217,10 @@ const AdminDashboard = () => {
                                         </TableCell>
                                         <TableCell>{user.email}</TableCell>
                                         <TableCell>
-                                            <Chip 
-                                                label={user.role} 
-                                                size="small" 
-                                                color={user.role === 'admin' ? 'error' : user.role === 'instructor' ? 'primary' : 'default'} 
+                                            <Chip
+                                                label={user.role}
+                                                size="small"
+                                                color={user.role === 'admin' ? 'error' : user.role === 'instructor' ? 'primary' : 'default'}
                                                 variant="outlined"
                                             />
                                         </TableCell>
@@ -223,35 +245,114 @@ const AdminDashboard = () => {
 
             {/* Tab 1: Manage Courses */}
             {activeTab === 1 && (
-                <TableContainer component={Paper} elevation={2}>
-                    <Table size="small">
-                        <TableHead sx={{ bgcolor: '#eee' }}>
-                            <TableRow>
-                                <TableCell>Code</TableCell>
-                                <TableCell>Title</TableCell>
-                                <TableCell>Department</TableCell>
-                                <TableCell>Session</TableCell>
-                                <TableCell>Instructor</TableCell>
-                                <TableCell align="right">Actions</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {courses.map((course) => (
-                                <TableRow key={course._id} hover>
-                                    <TableCell fontWeight="bold">{course.code}</TableCell>
-                                    <TableCell>{course.title}</TableCell>
-                                    <TableCell>{course.department}</TableCell>
-                                    <TableCell>{course.year} - {course.semester}</TableCell>
-                                    <TableCell>{course.instructor?.name || 'Unknown'}</TableCell>
-                                    <TableCell align="right">
-                                        <IconButton size="small" onClick={() => navigate(`/admin/edit-course/${course._id}`)} color="primary"><EditIcon /></IconButton>
-                                        <IconButton size="small" onClick={() => deleteCourse(course._id)} color="error"><DeleteIcon /></IconButton>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                <Paper sx={{ mb: 3 }}>
+                    <Tabs
+                        value={courseSubTab}
+                        onChange={(e, val) => setCourseSubTab(val)}
+                        textColor="primary"
+                        indicatorColor="primary"
+                        sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#f5f5f5' }}
+                    >
+                        <Tab label="Running Courses" />
+                        <Tab label="New Course Approval" />
+                    </Tabs>
+
+                    {/* Sub-tab 0: Running Courses (Approved) */}
+                    {courseSubTab === 0 && (
+                        <TableContainer>
+                            <Table size="small">
+                                <TableHead sx={{ bgcolor: '#fff' }}>
+                                    <TableRow>
+                                        <TableCell>Code</TableCell>
+                                        <TableCell>Title</TableCell>
+                                        <TableCell>Department</TableCell>
+                                        <TableCell>Session</TableCell>
+                                        <TableCell>Instructor</TableCell>
+                                        <TableCell>Status</TableCell>
+                                        <TableCell align="right">Actions</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {courses.filter(c => c.status === 'Approved').map((course) => (
+                                        <TableRow key={course._id} hover>
+                                            <TableCell fontWeight="bold">{course.code}</TableCell>
+                                            <TableCell>{course.title}</TableCell>
+                                            <TableCell>{course.department}</TableCell>
+                                            <TableCell>{course.year} - {course.semester}</TableCell>
+                                            <TableCell>{course.instructor?.name || 'Unknown'}</TableCell>
+                                            <TableCell><Chip label="Approved" color="success" size="small" /></TableCell>
+                                            <TableCell align="right">
+                                                <IconButton size="small" onClick={() => navigate(`/admin/edit-course/${course._id}`)} color="primary"><EditIcon /></IconButton>
+                                                <IconButton size="small" onClick={() => deleteCourse(course._id)} color="error"><DeleteIcon /></IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {courses.filter(c => c.status === 'Approved').length === 0 && (
+                                        <TableRow>
+                                            <TableCell colSpan={7} align="center">No running courses found.</TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    )}
+
+                    {/* Sub-tab 1: New Course Approval (Proposed) */}
+                    {courseSubTab === 1 && (
+                        <TableContainer>
+                            <Table size="small">
+                                <TableHead sx={{ bgcolor: '#fff' }}>
+                                    <TableRow>
+                                        <TableCell>Code</TableCell>
+                                        <TableCell>Title</TableCell>
+                                        <TableCell>Department</TableCell>
+                                        <TableCell>Instructor</TableCell>
+                                        <TableCell>Credits</TableCell>
+                                        <TableCell>Session</TableCell>
+                                        <TableCell align="right">Actions</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {courses.filter(c => c.status === 'Proposed').map((course) => (
+                                        <TableRow key={course._id} hover>
+                                            <TableCell fontWeight="bold">{course.code}</TableCell>
+                                            <TableCell>{course.title}</TableCell>
+                                            <TableCell>{course.department}</TableCell>
+                                            <TableCell>{course.instructor?.name || 'Unknown'}</TableCell>
+                                            <TableCell>{course.credits?.total || 'N/A'}</TableCell>
+                                            <TableCell>{course.year} - {course.semester}</TableCell>
+                                            <TableCell align="right">
+                                                <Button
+                                                    size="small"
+                                                    variant="contained"
+                                                    color="success"
+                                                    sx={{ mr: 1 }}
+                                                    onClick={() => approveCourse(course._id)}
+                                                    startIcon={<CheckCircleIcon />}
+                                                >
+                                                    Approve
+                                                </Button>
+                                                <Button
+                                                    size="small"
+                                                    variant="outlined"
+                                                    color="error"
+                                                    onClick={() => rejectCourse(course._id)}
+                                                >
+                                                    Reject
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {courses.filter(c => c.status === 'Proposed').length === 0 && (
+                                        <TableRow>
+                                            <TableCell colSpan={7} align="center">No courses awaiting approval.</TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    )}
+                </Paper>
             )}
 
             {/* Tab 2: Help Center */}
@@ -270,9 +371,9 @@ const AdminDashboard = () => {
                         </TableHead>
                         <TableBody>
                             {helpRequests.map((req) => (
-                                <TableRow 
-                                    key={req._id} 
-                                    hover 
+                                <TableRow
+                                    key={req._id}
+                                    hover
                                     onClick={() => {
                                         setSelectedHelp(req);
                                         setAdminReply(req.adminResponse || '');
@@ -333,9 +434,9 @@ const AdminDashboard = () => {
                                     </TableRow>
                                 ) : (
                                     feedbackList.map((fb) => (
-                                        <TableRow 
-                                            key={fb._id} 
-                                            hover 
+                                        <TableRow
+                                            key={fb._id}
+                                            hover
                                             onClick={() => {
                                                 setSelectedFeedback(fb);
                                                 setFeedbackDetailOpen(true);
@@ -367,19 +468,19 @@ const AdminDashboard = () => {
                 <DialogTitle>Edit User</DialogTitle>
                 <DialogContent>
                     <Box component="form" sx={{ mt: 1, minWidth: 300 }}>
-                        <TextField fullWidth margin="dense" label="Name" value={userData.name} onChange={e => setUserData({...userData, name: e.target.value})} />
-                        <TextField fullWidth margin="dense" label="Email" value={userData.email} onChange={e => setUserData({...userData, email: e.target.value})} />
+                        <TextField fullWidth margin="dense" label="Name" value={userData.name} onChange={e => setUserData({ ...userData, name: e.target.value })} />
+                        <TextField fullWidth margin="dense" label="Email" value={userData.email} onChange={e => setUserData({ ...userData, email: e.target.value })} />
                         <FormControl fullWidth margin="dense">
                             <InputLabel>Role</InputLabel>
-                            <Select value={userData.role} label="Role" onChange={e => setUserData({...userData, role: e.target.value})}>
+                            <Select value={userData.role} label="Role" onChange={e => setUserData({ ...userData, role: e.target.value })}>
                                 <MenuItem value="student">Student</MenuItem>
                                 <MenuItem value="instructor">Instructor</MenuItem>
                                 <MenuItem value="faculty_advisor">Faculty Advisor</MenuItem>
                                 <MenuItem value="admin">Admin</MenuItem>
                             </Select>
                         </FormControl>
-                        <TextField fullWidth margin="dense" label="Department" value={userData.department} onChange={e => setUserData({...userData, department: e.target.value})} />
-                        <TextField fullWidth margin="dense" label="Entry Number" value={userData.rollNumber} onChange={e => setUserData({...userData, rollNumber: e.target.value})} />
+                        <TextField fullWidth margin="dense" label="Department" value={userData.department} onChange={e => setUserData({ ...userData, department: e.target.value })} />
+                        <TextField fullWidth margin="dense" label="Entry Number" value={userData.rollNumber} onChange={e => setUserData({ ...userData, rollNumber: e.target.value })} />
                     </Box>
                 </DialogContent>
                 <DialogActions>
@@ -429,26 +530,26 @@ const AdminDashboard = () => {
                                                     <TableCell><strong>Response</strong></TableCell>
                                                 </TableRow>
                                             </TableHead>
-                                    <TableBody>
-                                        {Object.entries(selectedFeedback.ratings).map(([key, value]) => {
-                                            // Helper to map legacy keys to full questions
-                                            const getQuestionText = (k) => {
-                                                const map = {
-                                                    'clarity': 'The instructor had command over the subject',
-                                                    'pace': 'The instructor was sincere (timely release of grades, etc.)',
-                                                    'helpfulness': 'The instructor adapted professional ethics'
-                                                };
-                                                return map[k] || k;
-                                            };
-                                            
-                                            return (
-                                                <TableRow key={key}>
-                                                    <TableCell>{getQuestionText(key)}</TableCell>
-                                                    <TableCell>{value}</TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                    </TableBody>
+                                            <TableBody>
+                                                {Object.entries(selectedFeedback.ratings).map(([key, value]) => {
+                                                    // Helper to map legacy keys to full questions
+                                                    const getQuestionText = (k) => {
+                                                        const map = {
+                                                            'clarity': 'The instructor had command over the subject',
+                                                            'pace': 'The instructor was sincere (timely release of grades, etc.)',
+                                                            'helpfulness': 'The instructor adapted professional ethics'
+                                                        };
+                                                        return map[k] || k;
+                                                    };
+
+                                                    return (
+                                                        <TableRow key={key}>
+                                                            <TableCell>{getQuestionText(key)}</TableCell>
+                                                            <TableCell>{value}</TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
                                         </Table>
                                     </TableContainer>
                                 </Box>
@@ -477,10 +578,10 @@ const AdminDashboard = () => {
                 <DialogTitle>
                     <Box display="flex" justifyContent="space-between" alignItems="center">
                         <Typography variant="h6">Manage Help Request</Typography>
-                        <Chip 
-                            label={selectedHelp?.status} 
-                            color={selectedHelp?.status === 'Open' ? 'error' : 'success'} 
-                            size="small" 
+                        <Chip
+                            label={selectedHelp?.status}
+                            color={selectedHelp?.status === 'Open' ? 'error' : 'success'}
+                            size="small"
                         />
                     </Box>
                 </DialogTitle>
@@ -492,7 +593,7 @@ const AdminDashboard = () => {
                                 <Typography variant="body1"><strong>{selectedHelp.user?.name}</strong> ({selectedHelp.user?.email})</Typography>
                                 <Typography variant="caption" color="textSecondary">{selectedHelp.user?.role} • {selectedHelp.type}</Typography>
                             </Box>
-                            
+
                             <Box mb={3} p={2} bgcolor="#f5f5f5" borderRadius={1}>
                                 <Typography variant="subtitle2" color="textSecondary" gutterBottom>Description</Typography>
                                 <Typography variant="body1" style={{ whiteSpace: 'pre-wrap' }}>{selectedHelp.description}</Typography>
@@ -515,7 +616,7 @@ const AdminDashboard = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setHelpDetailOpen(false)}>Cancel</Button>
-                    <Button 
+                    <Button
                         onClick={async () => {
                             try {
                                 const res = await api.put(`/help/${selectedHelp._id}`, {
@@ -532,8 +633,8 @@ const AdminDashboard = () => {
                         Update
                     </Button>
                     {selectedHelp?.status !== 'Closed' && (
-                        <Button 
-                            variant="contained" 
+                        <Button
+                            variant="contained"
                             color="primary"
                             onClick={async () => {
                                 try {
