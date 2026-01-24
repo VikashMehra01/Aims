@@ -194,6 +194,8 @@ router.get('/google/callback', (req, res, next) => {
     passport.authenticate('google', { session: false }, (err, user, info) => {
         if (err) return next(err);
 
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+
         // If user not found, it means they need to register
         if (!user) {
             if (info && info.profile) {
@@ -201,9 +203,9 @@ router.get('/google/callback', (req, res, next) => {
                 const name = encodeURIComponent(info.profile.displayName);
                 const googleId = info.profile.id;
                 // Redirect to client registration page with pre-filled data
-                return res.redirect(`http://localhost:5173/register?email=${email}&name=${name}&googleId=${googleId}`);
+                return res.redirect(`${clientUrl}/register?email=${email}&name=${name}&googleId=${googleId}`);
             }
-            return res.redirect('http://localhost:5173/login?error=Google_Auth_Failed');
+            return res.redirect(`${clientUrl}/login?error=Google_Auth_Failed`);
         }
 
         // Login Success
@@ -212,7 +214,7 @@ router.get('/google/callback', (req, res, next) => {
         jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' }, (err, token) => {
             if (err) throw err;
             console.log('GOOGLE AUTH - JWT created successfully');
-            res.redirect(`http://localhost:5173/login?token=${token}`);
+            res.redirect(`${clientUrl}/login?token=${token}`);
         });
     })(req, res, next);
 });
