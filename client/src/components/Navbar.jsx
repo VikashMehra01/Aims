@@ -61,7 +61,7 @@ const Navbar = (props) => {
     const getRoleLabel = (role) => {
         switch (role) {
             case 'faculty_advisor': return 'Faculty Advisor';
-            default: return role.charAt(0).toUpperCase() + role.slice(1);
+            default: return role ? role.charAt(0).toUpperCase() + role.slice(1) : '';
         }
     };
 
