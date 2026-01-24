@@ -7,6 +7,9 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // Dynamic Base URL usually for Auth routes which are at root /auth
+    const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
     useEffect(() => {
         const checkLoggedIn = async () => {
             let token = localStorage.getItem('token');
@@ -23,12 +26,13 @@ export const AuthProvider = ({ children }) => {
 
             if (token) {
                 try {
-                    // Use relative URL to leverage proxy
-                    const res = await axios.get('/auth/me', {
+                    // Use absolute URL to support Production (Votex proxy only works in Dev)
+                    const res = await axios.get(`${BASE_URL}/auth/me`, {
                         headers: { 'x-auth-token': token }
                     });
                     setUser(res.data);
                 } catch (err) {
+                    console.error('Auth verification failed:', err);
                     localStorage.removeItem('token');
                 }
             }
@@ -39,23 +43,13 @@ export const AuthProvider = ({ children }) => {
 
     const login = (token) => {
         localStorage.setItem('token', token);
-        // We need to fetch user to know the role for redirection
-        // Reloading the page will trigger checkLoggedIn which fetches user
-        // But for smoother UX we could fetch here. For now, simple reload works or redirection in Login component.
-        // Let's rely on Login component for redirection after setting token.
-        // Wait, checkLoggedIn runs ONCE on mount. Calling login() needs to update state.
-        
-        // Quick fix: Hard reload to reset state is reliable but slow.
-        // Better: Fetch user immediately.
         
         const fetchUser = async () => {
              try {
-                const res = await axios.get('/auth/me', {
+                const res = await axios.get(`${BASE_URL}/auth/me`, {
                     headers: { 'x-auth-token': token }
                 });
                 setUser(res.data);
-                // Redirect based on role? Or let Component handle it.
-                // Login.jsx handles it if user state is updated.
             } catch (err) {
                 console.error(err);
             }
