@@ -207,6 +207,12 @@ const AdvisorDashboard = () => {
         });
     };
 
+    const getCourseStatus = (course) => {
+        if (course.isEnrollmentOpen === false) return 'Closed';
+        if (course.enrollmentDeadline && new Date() > new Date(course.enrollmentDeadline)) return 'Closed';
+        return 'Open';
+    };
+
     const filteredCourses = myCourses.filter(course => {
         const matchesCode = courseFilters.code === '' || course.code.toLowerCase().includes(courseFilters.code.toLowerCase());
         const matchesTitle = courseFilters.title === '' || course.title.toLowerCase().includes(courseFilters.title.toLowerCase());
@@ -427,6 +433,7 @@ const AdvisorDashboard = () => {
                                         <TableCell sx={{ fontWeight: 700 }}>Credits</TableCell>
                                         <TableCell sx={{ fontWeight: 700 }}>Semester</TableCell>
                                         <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Enrollment</TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -439,6 +446,13 @@ const AdvisorDashboard = () => {
                                             <TableCell><Chip label={course.credits?.total || 4} size="small" color="secondary" /></TableCell>
                                             <TableCell>{course.semester}</TableCell>
                                             <TableCell><Chip label={course.status} size="small" color={course.status === 'Approved' ? 'success' : 'primary'} variant="outlined" /></TableCell>
+                                            <TableCell>
+                                                {getCourseStatus(course) === 'Open' ? (
+                                                    <Chip label="Open" color="success" size="small" variant="outlined" />
+                                                ) : (
+                                                    <Chip label="Closed" color="error" size="small" variant="outlined" />
+                                                )}
+                                            </TableCell>
                                             <TableCell align="right">
                                                 {course.status === 'Approved' ? (
                                                     <Button variant="contained" size="small" endIcon={<VisibilityIcon />} onClick={() => handleViewCourse(course._id)} sx={{ textTransform: 'none', fontWeight: 600 }}>

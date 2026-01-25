@@ -262,6 +262,12 @@ const FacultyDashboard = () => {
         });
     };
 
+    const getCourseStatus = (course) => {
+        if (course.isEnrollmentOpen === false) return 'Closed';
+        if (course.enrollmentDeadline && new Date() > new Date(course.enrollmentDeadline)) return 'Closed';
+        return 'Open';
+    };
+
     // Extract year from roll number (assumes format like "2023CSB1143" or similar)
     const extractYearFromRollNumber = (rollNumber) => {
         if (!rollNumber || rollNumber.length < 4) return '';
@@ -778,6 +784,7 @@ const FacultyDashboard = () => {
                                                     <TableCell sx={{ fontWeight: 700, fontSize: '0.9rem' }}>Department</TableCell>
                                                     <TableCell sx={{ fontWeight: 700, fontSize: '0.9rem' }}>Credits</TableCell>
                                                     <TableCell sx={{ fontWeight: 700, fontSize: '0.9rem' }}>Semester</TableCell>
+                                                    <TableCell sx={{ fontWeight: 700, fontSize: '0.9rem' }}>Enrollment</TableCell>
                                                     <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.9rem' }}>Actions</TableCell>
                                                 </TableRow>
                                             </TableHead>
@@ -806,15 +813,15 @@ const FacultyDashboard = () => {
                                                         </TableCell>
                                                         <TableCell sx={{ fontWeight: 600 }}>{course.title}</TableCell>
                                                         <TableCell sx={{ color: 'text.secondary' }}>{course.department}</TableCell>
+                                                        <TableCell>{course.credits?.total || 4}</TableCell>
+                                                        <TableCell>{course.semester}</TableCell>
                                                         <TableCell>
-                                                            <Chip
-                                                                label={`${course.credits?.total || 0}`}
-                                                                size="small"
-                                                                color="secondary"
-                                                                sx={{ fontWeight: 600 }}
-                                                            />
+                                                            {getCourseStatus(course) === 'Open' ? (
+                                                                <Chip label="Open" color="success" size="small" variant="outlined" />
+                                                            ) : (
+                                                                <Chip label="Closed" color="error" size="small" variant="outlined" />
+                                                            )}
                                                         </TableCell>
-                                                        <TableCell sx={{ color: 'text.secondary' }}>{course.semester}</TableCell>
                                                         <TableCell align="right">
                                                             {course.status === 'Approved' ? (
                                                                 <Button

@@ -179,11 +179,18 @@ const StudentDashboard = () => {
         }
     };
 
+    const getCourseStatus = (course) => {
+        if (course.isEnrollmentOpen === false) return 'Closed';
+        if (course.enrollmentDeadline && new Date() > new Date(course.enrollmentDeadline)) return 'Closed';
+        return 'Running';
+    };
+
     const getStatusChip = (status) => {
         let color = 'default';
         if (status === 'Approved') color = 'success';
         if (status === 'Rejected') color = 'error';
         if (status.includes('Pending')) color = 'warning';
+        if (status === 'Closed') color = 'error';
         return <Chip label={status.replace('_', ' ')} color={color} size="small" />;
     };
 
@@ -334,7 +341,11 @@ const StudentDashboard = () => {
                                                 <TableCell>{ltpc}</TableCell>
                                                 <TableCell>{course.instructor?.name || 'TBA'}</TableCell>
                                                 <TableCell align="center">
-                                                    <Chip label="Running" color="success" size="small" variant="outlined" sx={{ height: 24 }} />
+                                                    {getCourseStatus(course) === 'Running' ? (
+                                                        <Chip label="Running" color="success" size="small" variant="outlined" sx={{ height: 24 }} />
+                                                    ) : (
+                                                        <Chip label="Closed" color="error" size="small" variant="outlined" sx={{ height: 24 }} />
+                                                    )}
                                                 </TableCell>
                                                 <TableCell align="center">
                                                     <IconButton size="small" onClick={() => handleViewPeers(course)}>
@@ -350,10 +361,11 @@ const StudentDashboard = () => {
                                                             size="small"
                                                             color="primary"
                                                             disableElevation
+                                                            disabled={getCourseStatus(course) === 'Closed'}
                                                             onClick={() => handleEnrollClick(course)}
                                                             sx={{ textTransform: 'none', py: 0.5 }}
                                                         >
-                                                            Enroll
+                                                            {getCourseStatus(course) === 'Closed' ? 'Closed' : 'Enroll'}
                                                         </Button>
                                                     )}
                                                 </TableCell>

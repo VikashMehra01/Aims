@@ -34,7 +34,8 @@ import {
     School,
     Person,
     CalendarMonth,
-    Settings
+    Settings,
+    Download
 } from '@mui/icons-material';
 import api from '../utils/api';
 
@@ -110,6 +111,36 @@ const CourseDetails = () => {
         } catch (err) {
             setMessage({ type: 'error', text: 'Action failed' });
         }
+    };
+
+    const handleDownloadCSV = () => {
+        const enrolledStudents = registrations.filter(r => r.status === 'Approved');
+        if (enrolledStudents.length === 0) {
+            setMessage({ type: 'warning', text: 'No enrolled students to download' });
+            return;
+        }
+
+        const headers = ['Entry Number', 'Name', 'Email', 'Department', 'Status'];
+        const csvContent = [
+            headers.join(','),
+            ...enrolledStudents.map(r => [
+                r.student?.rollNumber,
+                `"${r.student?.name}"`,
+                r.student?.email,
+                r.student?.department,
+                r.status
+            ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${course.code}_student_list.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
     };
 
     if (loading) {
@@ -332,10 +363,18 @@ const CourseDetails = () => {
                             overflow: 'hidden',
                         }}
                     >
-                        <Box sx={{ p: 3, bgcolor: 'rgba(99, 102, 241, 0.05)' }}>
+                        <Box sx={{ p: 3, bgcolor: 'rgba(99, 102, 241, 0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                Student Registrations
+                                Enrolled Students
                             </Typography>
+                            <Button
+                                startIcon={<Download />}
+                                variant="contained"
+                                size="small"
+                                onClick={handleDownloadCSV}
+                            >
+                                Download List
+                            </Button>
                         </Box>
                         <TableContainer>
                             <Table>
@@ -345,20 +384,19 @@ const CourseDetails = () => {
                                         <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                                         <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
                                         <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {registrations.length === 0 ? (
+                                    {registrations.filter(r => r.status === 'Approved').length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                                            <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
                                                 <Typography color="textSecondary">
-                                                    No students registered yet
+                                                    No students enrolled yet
                                                 </Typography>
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        registrations.map((reg) => (
+                                        registrations.filter(r => r.status === 'Approved').map((reg) => (
                                             <TableRow
                                                 key={reg._id}
                                                 sx={{
@@ -378,47 +416,11 @@ const CourseDetails = () => {
                                                 <TableCell>{reg.student?.email}</TableCell>
                                                 <TableCell>
                                                     <Chip
-                                                        label={reg.status.replace(/_/g, ' ')}
+                                                        label="Enrolled"
                                                         size="small"
-                                                        color={
-                                                            reg.status === 'Approved' ? 'success' :
-                                                                reg.status === 'Rejected' ? 'error' :
-                                                                    'warning'
-                                                        }
+                                                        color="success"
                                                         sx={{ fontWeight: 500 }}
                                                     />
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    {reg.status === 'Pending_Instructor' && (
-                                                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                                                            <Button
-                                                                size="small"
-                                                                variant="contained"
-                                                                color="success"
-                                                                startIcon={<CheckCircle />}
-                                                                onClick={() => handleAction(reg._id, 'approve')}
-                                                                sx={{
-                                                                    minWidth: 100,
-                                                                    transition: 'all 0.3s ease',
-                                                                }}
-                                                            >
-                                                                Approve
-                                                            </Button>
-                                                            <Button
-                                                                size="small"
-                                                                variant="outlined"
-                                                                color="error"
-                                                                startIcon={<Cancel />}
-                                                                onClick={() => handleAction(reg._id, 'reject')}
-                                                                sx={{
-                                                                    minWidth: 100,
-                                                                    transition: 'all 0.3s ease',
-                                                                }}
-                                                            >
-                                                                Reject
-                                                            </Button>
-                                                        </Box>
-                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         ))
