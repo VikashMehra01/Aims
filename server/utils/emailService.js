@@ -40,7 +40,7 @@ const transporter = nodemailer.createTransport({
 // Verify connection configuration (non-blocking, won't fail startup)
 transporter.verify(function (error, success) {
     if (error) {
-        const msg = `[EMAIL SERVICE] Connection Error (non-critical): ${error.message}`;
+        const msg = `[EMAIL SERVICE] Connection Error (non-critical): ${error.message || error}`;
         console.log(msg);
         logToFile(msg);
         console.log('[EMAIL SERVICE] Note: This may not affect actual email sending, will retry on send');
@@ -49,9 +49,6 @@ transporter.verify(function (error, success) {
         console.log(msg);
         logToFile(msg);
     }
-}).catch(() => {
-    // Catch promise rejection to prevent unhandled errors
-    console.log('[EMAIL SERVICE] Verify check skipped - will test on first email send');
 });
 
 // Send OTP via Email
