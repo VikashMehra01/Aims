@@ -11,28 +11,25 @@ const logToFile = (msg) => {
 };
 
 // Create Reusable Transporter with Pooling
-// Using explicit SMTP config instead of 'service: gmail' for better production compatibility
+// Supports: Gmail (local), SendGrid, Resend, or any SMTP service
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465, // Use 465 for SSL/TLS (more likely to work on cloud)
-    secure: true, // true for 465
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT) || 465,
+    secure: (process.env.SMTP_PORT == 465) || true, // true for 465, false for 587
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+        user: process.env.SMTP_USER || process.env.EMAIL_USER,
+        pass: process.env.SMTP_PASS || process.env.EMAIL_PASS
     },
-    pool: true, // Keep connections open for faster subsequent sends
+    pool: true,
     maxConnections: 5,
     maxMessages: 100,
-    // Add generous timeouts for production environments
-    connectionTimeout: 60000, // 60 seconds
-    greetingTimeout: 30000, // 30 seconds
-    socketTimeout: 60000, // 60 seconds
-    // Enable debug logging
+    connectionTimeout: 60000,
+    greetingTimeout: 30000,
+    socketTimeout: 60000,
     logger: true,
     debug: true,
-    // TLS options for better compatibility
     tls: {
-        rejectUnauthorized: true, // Keep true for security, set false only for testing
+        rejectUnauthorized: true,
         minVersion: 'TLSv1.2'
     }
 });
@@ -54,7 +51,7 @@ transporter.verify(function (error, success) {
 // Send OTP via Email
 const sendOTP = async (email, otp) => {
     // Check if email is configured (production mode)
-    const isEmailConfigured = process.env.EMAIL_USER && process.env.EMAIL_PASS;
+    const isEmailConfigured = (process.env.SMTP_PASS || process.env.EMAIL_PASS) && (process.env.EMAIL_USER || process.env.SMTP_USER);
 
     // If not configured, use development fallback
     if (!isEmailConfigured) {
@@ -73,7 +70,7 @@ const sendOTP = async (email, otp) => {
 
         // Email Configuration
         const mailOptions = {
-            from: process.env.EMAIL_USER,
+            from: process.env.SENDER_EMAIL || (process.env.SMTP_USER === 'resend' ? 'AIMS Support <onboarding@resend.dev>' : '"AIMS Support" <noreply@aims.edu>'),
             to: email,
             subject: 'AIMS Verification OTP',
             html: `
