@@ -14,8 +14,8 @@ const logToFile = (msg) => {
 // Using explicit SMTP config instead of 'service: gmail' for better production compatibility
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587, // Use 587 for TLS (STARTTLS)
-    secure: false, // false for 587, true for 465
+    port: 465, // Use 465 for SSL/TLS (more likely to work on cloud)
+    secure: true, // true for 465
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
@@ -37,17 +37,21 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// Verify connection configuration
+// Verify connection configuration (non-blocking, won't fail startup)
 transporter.verify(function (error, success) {
     if (error) {
-        const msg = `[EMAIL SERVICE] Connection Error: ${error}`;
+        const msg = `[EMAIL SERVICE] Connection Error (non-critical): ${error.message}`;
         console.log(msg);
         logToFile(msg);
+        console.log('[EMAIL SERVICE] Note: This may not affect actual email sending, will retry on send');
     } else {
         const msg = '[EMAIL SERVICE] Server is ready to take our messages';
         console.log(msg);
         logToFile(msg);
     }
+}).catch(() => {
+    // Catch promise rejection to prevent unhandled errors
+    console.log('[EMAIL SERVICE] Verify check skipped - will test on first email send');
 });
 
 // Send OTP via Email
