@@ -23,7 +23,7 @@ import { School, Security } from '@mui/icons-material';
 const Login = () => {
     const { login, user } = useContext(AuthContext);
     const [formData, setFormData] = useState({ email: '', password: '' });
-    const [role, setRole] = useState('student'); // 'student', 'instructor', 'admin'
+    const [role, setRole] = useState('student'); // 'student', 'instructor', 'faculty_advisor', 'admin'
     const [showPassword, setShowPassword] = useState(false);
 
     const [error, setError] = useState('');
@@ -60,35 +60,22 @@ const Login = () => {
             // So we are sending 'instructor' to backend if user picks 'Faculty'.
             // If user is FA, and selects Faculty (which sets role='instructor'), backend should handle it.
             // My backend logic: if (role === 'faculty') { ... } 
-            
+
             // Let's adjust backend logic if I send 'instructor' instead of 'faculty'.
             // Actually, let's just send what is in state.
-            
+
             let roleToSend = role;
+            // Map 'instructor' to 'faculty' for backward compatibility with backend
             if (role === 'instructor') {
-                // If the user is really an FA, sending 'instructor' might trigger the mismatch check:
-                // if (role !== user.role) check.
-                // Re-reading backend: 
-                // if (role === 'faculty') { ... } 
-                // else if (role !== user.role) { ... }
-                
-                // So if I send 'instructor' and user in DB is 'faculty_advisor', it will fail the `role !== user.role` check.
-                // I should send 'faculty' if state is 'instructor' to trigger the lenient check?
-                // OR I fix backend to be lenient for instructor.
-                
-                // Let's send 'faculty' to be safe with the logic I wrote in Step 104.
                 roleToSend = 'faculty';
             }
-
-            // Correction: In step 104, I wrote: 
-            // if (role === 'faculty') { ... } else if (role !== user.role) { ... }
-            // So if I send 'faculty', it checks for instructor/FA. This is good.
+            // faculty_advisor sent as-is
 
             const res = await axios.post(`${apiUrl}/auth/login`, {
                 ...formData,
                 role: roleToSend
             }, {
-                withCredentials: true 
+                withCredentials: true
             });
 
             login(res.data.token);
@@ -157,15 +144,15 @@ const Login = () => {
                         </Typography>
 
                         {authStep === 'credentials' && (
-                            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 1 }}>
-                                {['student', 'faculty', 'admin'].map((r) => (
+                            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                {['student', 'instructor', 'faculty_advisor', 'admin'].map((r) => (
                                     <Button
                                         key={r}
                                         variant={role === r ? 'contained' : 'outlined'}
                                         onClick={() => setRole(r)}
                                         size="small"
-                                        sx={{ 
-                                            borderRadius: 20, 
+                                        sx={{
+                                            borderRadius: 20,
                                             textTransform: 'capitalize',
                                             px: 2,
                                             minWidth: 'auto',
@@ -174,7 +161,7 @@ const Login = () => {
                                             borderColor: role === r ? 'primary.main' : 'divider'
                                         }}
                                     >
-                                        {r}
+                                        {r === 'faculty_advisor' ? 'Faculty Advisor' : r}
                                     </Button>
                                 ))}
                             </Box>

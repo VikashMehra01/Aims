@@ -37,10 +37,24 @@ transporter.verify(function (error, success) {
 
 // Send OTP via Email
 const sendOTP = async (email, otp) => {
+    // Check if email is configured (production mode)
+    const isEmailConfigured = process.env.EMAIL_USER && process.env.EMAIL_PASS;
+
+    // If not configured, use development fallback
+    if (!isEmailConfigured) {
+        console.log('--------------------------------------------------');
+        console.log('[EMAIL SERVICE] Development Mode - Email not configured');
+        console.log(`[EMAIL SERVICE] OTP for ${email} is: ${otp}`);
+        console.log('--------------------------------------------------');
+        logToFile(`DEV MODE: OTP for ${email} is ${otp}`);
+        return true; // Return true in development to allow signup to proceed
+    }
+
+    // Production mode: attempt to send email
     try {
         logToFile(`Attempting to send OTP to ${email}`);
         logToFile(`DEBUG MODE: The OTP is ${otp}`); // Added for debugging
-        
+
         // Email Configuration
         const mailOptions = {
             from: process.env.EMAIL_USER,
@@ -69,14 +83,14 @@ const sendOTP = async (email, otp) => {
         const errorMsg = `[EMAIL SERVICE] Error sending email: ${error}`;
         console.error(errorMsg);
         logToFile(errorMsg);
-        
+
         // Fallback to console log if email fails (for development safety)
         console.log('--------------------------------------------------');
         console.log(`[EMAIL SERVICE] FALLBACK: OTP for ${email} is ${otp}`);
         console.log('--------------------------------------------------');
-        
+
         logToFile(`FALLBACK OTP: ${otp}`);
-        return false;
+        return false; // Return false in production if email fails
     }
 };
 

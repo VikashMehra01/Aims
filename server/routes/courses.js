@@ -404,15 +404,38 @@ router.get('/instructor/pending', auth, checkRole(['instructor', 'faculty_adviso
 // @route   GET /api/courses/fa/pending
 // @desc    Get pending registrations for FA
 // @access  Faculty Advisor
-router.get('/fa/pending', auth, checkRole(['faculty_advisor']), async (req, res) => {
+router.get('/fa/pending-approvals', auth, checkRole(['faculty_advisor']), async (req, res) => {
     try {
-        // In real app, we'd filter by students assigned to this FA. 
-        // For now, we'll fetch ALL 'Pending_FA' requests.
+        console.log('\n=== FA PENDING APPROVALS ENDPOINT CALLED ===');
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.set('Pragma', 'no-cache');
+        res.set('Expires', '0');
+
+        // Get FA's department
+        const fa = await User.findById(req.user.id);
+        if (!fa || !fa.department) {
+            return res.status(400).json({ msg: 'Faculty Advisor department not found' });
+        }
+
+        // Find pending registrations for students in FA's department
         const pending = await CourseRegistration.find({
             status: 'Pending_FA'
-        }).populate('student', 'name rollNumber').populate('course', 'code title');
+        })
+            .populate('student', 'name rollNumber department')
+            .populate('course', 'code title');
 
-        res.json(pending);
+        // Filter by student's department matching FA's department
+        console.log(`[FA] FA Department: ${fa.department}`);
+        console.log(`[FA] Total Pending_FA: ${pending.length}`);
+        pending.forEach((reg, i) => console.log(`  ${i + 1}. ${reg.student?.name} - Dept:${reg.student?.department}`));
+
+        const filtered = pending.filter(reg =>
+            reg.student && reg.student.department === fa.department
+        );
+
+        console.log(`[FA] Filtered Results: ${filtered.length} for ${fa.department}`);
+
+        res.json(filtered);
     } catch (err) {
         res.status(500).send('Server Error');
     }
@@ -561,9 +584,18 @@ router.put('/instructor/bulk-approve', auth, checkRole(['instructor', 'faculty_a
 router.put('/fa/approve/:id', auth, checkRole(['faculty_advisor']), async (req, res) => {
     try {
         const { action } = req.body; // 'approve' or 'reject'
-        const registration = await CourseRegistration.findById(req.params.id);
+        const registration = await CourseRegistration.findById(req.params.id)
+            .populate('student', 'department name');
 
         if (!registration) return res.status(404).json({ msg: 'Registration not found' });
+
+        // Get FA's department
+        const fa = await User.findById(req.user.id);
+
+        // Verify student is from FA's department
+        if (registration.student.department !== fa.department) {
+            return res.status(403).json({ msg: 'You can only approve students from your department' });
+        }
 
         if (action === 'approve') {
             registration.status = 'Approved';
@@ -591,17 +623,28 @@ router.put('/fa/bulk-approve', auth, checkRole(['faculty_advisor']), async (req,
             return res.status(400).json({ msg: 'Please provide registration IDs' });
         }
 
+        // Get FA's department
+        const fa = await User.findById(req.user.id);
+
         let successCount = 0;
         let failureCount = 0;
         const errors = [];
 
         for (const id of ids) {
             try {
-                const registration = await CourseRegistration.findById(id);
+                const registration = await CourseRegistration.findById(id)
+                    .populate('student', 'department');
 
                 if (!registration) {
                     failureCount++;
                     errors.push({ id, error: 'Registration not found' });
+                    continue;
+                }
+
+                // Verify student is from FA's department
+                if (registration.student.department !== fa.department) {
+                    failureCount++;
+                    errors.push({ id, error: 'Student not from your department' });
                     continue;
                 }
 

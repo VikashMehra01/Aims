@@ -94,7 +94,8 @@ const AdvisorDashboard = () => {
 
     const fetchData = async () => {
         try {
-            const faRes = await api.get('/courses/fa/pending');
+            // Updated endpoint to bypass cache
+            const faRes = await api.get('/courses/fa/pending-approvals');
             setPendingRequests(faRes.data);
 
             const instRes = await api.get('/courses/instructor/pending');

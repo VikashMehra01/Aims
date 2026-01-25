@@ -20,7 +20,7 @@ import { School, CheckCircle } from '@mui/icons-material';
 
 const Register = () => {
     const { login } = useContext(AuthContext);
-    
+
     // Check for query params (from Google Auth redirect)
     const queryParams = new URLSearchParams(window.location.search);
     const initialName = queryParams.get('name') || '';
@@ -88,7 +88,8 @@ const Register = () => {
                 return setError('Please select your department');
             }
 
-            if (!formData.degree) {
+            // Only require degree for students
+            if (role === 'student' && !formData.degree) {
                 setIsLoading(false);
                 return setError('Please select your degree');
             }
@@ -100,19 +101,19 @@ const Register = () => {
 
                 const res = await axios.post(`${apiUrl}/auth/register`, {
                     name: formData.name,
-                    rollNumber: formData.rollNumber,
+                    rollNumber: role === 'student' ? formData.rollNumber : undefined,
                     email: formData.email,
                     password: formData.password,
                     department: formData.department,
-                    degree: formData.degree,
-                    yearOfEntry: new Date().getFullYear().toString(),
+                    degree: role === 'student' ? formData.degree : undefined,
+                    yearOfEntry: role === 'student' ? new Date().getFullYear().toString() : undefined,
                     googleId: formData.googleId, // Send googleId if present
                     role: roleToSend
                 });
-                
+
                 // Store registration token for step 2
                 setRegistrationToken(res.data.registrationToken);
-                
+
                 setAuthStep('otp');
                 setError('');
             } catch (err) {
@@ -272,28 +273,30 @@ const Register = () => {
                                         />
                                     )}
 
-                                    <TextField
-                                        select
-                                        margin="normal"
-                                        required
-                                        fullWidth
-                                        id="degree"
-                                        label="Degree"
-                                        name="degree"
-                                        value={formData.degree}
-                                        onChange={handleChange}
-                                        SelectProps={{
-                                            native: true,
-                                        }}
-                                    >
-                                        <option value="" disabled></option>
-                                        {DEGREES.map((option) => (
-                                            <option key={option} value={option}>
-                                                {option}
-                                            </option>
-                                        ))}
-                                    </TextField>
-                                    
+                                    {role === 'student' && (
+                                        <TextField
+                                            select
+                                            margin="normal"
+                                            required
+                                            fullWidth
+                                            id="degree"
+                                            label="Degree"
+                                            name="degree"
+                                            value={formData.degree}
+                                            onChange={handleChange}
+                                            SelectProps={{
+                                                native: true,
+                                            }}
+                                        >
+                                            <option value="" disabled></option>
+                                            {DEGREES.map((option) => (
+                                                <option key={option} value={option}>
+                                                    {option}
+                                                </option>
+                                            ))}
+                                        </TextField>
+                                    )}
+
                                     <TextField
                                         select
                                         margin="normal"
@@ -349,7 +352,7 @@ const Register = () => {
                                         value={formData.confirmPassword}
                                         onChange={handleChange}
                                     />
-                                    
+
                                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                                         <FormControlLabel
                                             control={
@@ -380,9 +383,9 @@ const Register = () => {
                                         autoFocus
                                         value={otp}
                                         onChange={(e) => setOtp(e.target.value)}
-                                        inputProps={{ 
-                                            maxLength: 6, 
-                                            style: { textAlign: 'center', letterSpacing: '0.5em', fontSize: '1.2rem', fontWeight: 'bold' } 
+                                        inputProps={{
+                                            maxLength: 6,
+                                            style: { textAlign: 'center', letterSpacing: '0.5em', fontSize: '1.2rem', fontWeight: 'bold' }
                                         }}
                                     />
                                 </>
