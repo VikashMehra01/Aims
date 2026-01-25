@@ -11,14 +11,29 @@ const logToFile = (msg) => {
 };
 
 // Create Reusable Transporter with Pooling
+// Using explicit SMTP config instead of 'service: gmail' for better production compatibility
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    pool: true, // Keep connections open for faster subsequent sends
-    maxConnections: 5,
-    maxMessages: 100,
+    host: 'smtp.gmail.com',
+    port: 587, // Use 587 for TLS (STARTTLS)
+    secure: false, // false for 587, true for 465
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
+    },
+    pool: true, // Keep connections open for faster subsequent sends
+    maxConnections: 5,
+    maxMessages: 100,
+    // Add generous timeouts for production environments
+    connectionTimeout: 60000, // 60 seconds
+    greetingTimeout: 30000, // 30 seconds
+    socketTimeout: 60000, // 60 seconds
+    // Enable debug logging
+    logger: true,
+    debug: true,
+    // TLS options for better compatibility
+    tls: {
+        rejectUnauthorized: true, // Keep true for security, set false only for testing
+        minVersion: 'TLSv1.2'
     }
 });
 
