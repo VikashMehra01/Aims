@@ -23,12 +23,11 @@ import { School, Security } from '@mui/icons-material';
 const Login = () => {
     const { login, user } = useContext(AuthContext);
     const [formData, setFormData] = useState({ email: '', password: '' });
-    const [role, setRole] = useState('student'); // 'student', 'instructor', 'faculty_advisor', 'admin'
     const [showPassword, setShowPassword] = useState(false);
 
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [otpSentMessage, setOtpSentMessage] = useState('');
+    const [otpSentMessage, _setOtpSentMessage] = useState('');
 
     // Missing state variables
     const [authStep, setAuthStep] = useState('credentials'); // 'credentials' or 'otp'
@@ -49,31 +48,8 @@ const Login = () => {
 
         try {
             const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-            // Determine role to send: 'faculty' maps to 'instructor' for backend check if needed, 
-            // but backend logic handles mapped checks.
-            // Let's send 'faculty' if user selected 'faculty' so backend knows.
-            // Actually my backend change expects 'role'.
-            // If user selected 'Faculty' button, I set role state to 'instructor'.
-            // But visually I show 'Faculty'. 
-            // Let's check my setRole calls: setRole('student'), setRole('instructor'), setRole('admin').
-            // Wait, previous replace_file_content setRole('instructor') for Faculty button. 
-            // So we are sending 'instructor' to backend if user picks 'Faculty'.
-            // If user is FA, and selects Faculty (which sets role='instructor'), backend should handle it.
-            // My backend logic: if (role === 'faculty') { ... } 
-
-            // Let's adjust backend logic if I send 'instructor' instead of 'faculty'.
-            // Actually, let's just send what is in state.
-
-            let roleToSend = role;
-            // Map 'instructor' to 'faculty' for backward compatibility with backend
-            if (role === 'instructor') {
-                roleToSend = 'faculty';
-            }
-            // faculty_advisor sent as-is
-
             const res = await axios.post(`${apiUrl}/auth/login`, {
-                ...formData,
-                role: roleToSend
+                ...formData
             }, {
                 withCredentials: true
             });
@@ -144,27 +120,7 @@ const Login = () => {
                         </Typography>
 
                         {authStep === 'credentials' && (
-                            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                {['student', 'instructor', 'faculty_advisor', 'admin'].map((r) => (
-                                    <Button
-                                        key={r}
-                                        variant={role === r ? 'contained' : 'outlined'}
-                                        onClick={() => setRole(r)}
-                                        size="small"
-                                        sx={{
-                                            borderRadius: 20,
-                                            textTransform: 'capitalize',
-                                            px: 2,
-                                            minWidth: 'auto',
-                                            bgcolor: role === r ? 'primary.main' : 'transparent',
-                                            color: role === r ? 'white' : 'text.secondary',
-                                            borderColor: role === r ? 'primary.main' : 'divider'
-                                        }}
-                                    >
-                                        {r === 'faculty_advisor' ? 'Faculty Advisor' : r}
-                                    </Button>
-                                ))}
-                            </Box>
+                            <Box sx={{ mb: 1 }} />
                         )}
 
                         {authStep === 'credentials' && (

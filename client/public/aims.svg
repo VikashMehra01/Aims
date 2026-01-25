@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="AIMS">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- rounded app icon background -->
+  <rect width="256" height="256" rx="64" fill="url(#bg)"/>
+  <path d="M24 72c0-26.51 21.49-48 48-48h112c26.51 0 48 21.49 48 48v6H24v-6z" fill="url(#shine)"/>
+
+  <!-- simple graduation cap + A mark (high contrast, good at 16px) -->
+  <g fill="#fff">
+    <path d="M128 70 48 108l80 38 80-38-80-38zm-64 50v24c0 6.6 2.7 12.9 7.5 17.6 12.7 12.4 33.9 19.8 56.5 19.8s43.8-7.4 56.5-19.8c4.8-4.7 7.5-11 7.5-17.6v-24l-80 38-80-38z" opacity="0.95"/>
+    <path d="M180 144c0-3.3 2.7-6 6-6s6 2.7 6 6v42c0 3.3-2.7 6-6 6s-6-2.7-6-6v-42z" opacity="0.85"/>
+    <path d="M84 206l30-88h28l30 88h-24l-5-17H113l-5 17H84zm35-36h18l-9-30-9 30z"/>
+  </g>
+</svg>

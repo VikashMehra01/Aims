@@ -147,7 +147,7 @@ const { sendOTP } = require('../utils/emailService');
 router.post('/login', async (req, res) => {
     try {
         console.log('Login Request Body:', req.body);
-        const { email, password, role } = req.body;
+        const { email, password } = req.body;
 
         // Hardcoded Admin Login
         if (email === 'admin@aims.com' && password === 'admin123') {
@@ -173,32 +173,6 @@ router.post('/login', async (req, res) => {
 
         // Check if user has password (might be Google user)
         if (!user.password) return res.status(400).json({ msg: 'Please login with Google' });
-
-        // Check Role if provided
-        if (role) {
-            // Map 'faculty' to 'instructor' for checking (if UI sends 'faculty')
-            // But usually UI sends specific 'instructor' or 'faculty_advisor'
-            // Let's assume UI sends 'student', 'instructor', 'faculty_advisor' or 'admin' 
-            // OR maybe UI just sends 'faculty' and we check if user is instructor or FA?
-
-            // Re-reading usage: user said "choose as faculty or student". 
-            // If user selects "Faculty", they might be 'instructor' or 'faculty_advisor'.
-            if (role === 'faculty') {
-                if (!['instructor', 'faculty_advisor'].includes(user.role)) {
-                    return res.status(400).json({ msg: 'Account does not have Faculty privileges' });
-                }
-            } else if (role !== user.role) {
-                // specific role check
-                // If user is 'faculty_advisor' and selects 'instructor' (if they are separate options?), FA is also an instructor. 
-                // But let's stick to strict match or mapped match.
-                // For now, let's trust the UI sends mapped values or simply:
-                if (role === 'student' && user.role !== 'student') {
-                    return res.status(400).json({ msg: 'Invalid role selected for this account' });
-                }
-                // If user is FA, allow 'instructor' login?
-                // Let's keep it simple: If role is provided, user.role must match, OR user.role must be compatible.
-            }
-        }
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ msg: 'Invalid Credentials' });
