@@ -537,11 +537,11 @@ npx kill-port 5173
 |---------|---------|------------|-----------------|-------|
 | View Courses | ✅ | ✅ | ✅ | ✅ |
 | Register for Courses | ✅ | ❌ | ❌ | ❌ |
-| Float Courses | ❌ | ✅ | ❌ | ✅ |
-| Approve Registrations (Instructor) | ❌ | ✅ | ❌ | ✅ |
+| Float Courses | ❌ | ✅ | ✅ | ✅ |
+| Approve Registrations (Instructor) | ❌ | ✅ | ✅ | ✅ |
 | Approve Registrations (Advisor) | ❌ | ❌ | ✅ | ✅ |
 | Manage Users | ❌ | ❌ | ❌ | ✅ |
-| View All Data | ❌ | Courses Only | Advisees Only | ✅ |
+| View All Data | ❌ | Courses Only | Courses + Advisees | ✅ |
 
 ## Contributing
 
