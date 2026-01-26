@@ -171,7 +171,6 @@ Aims/
 ### Step 1: Clone the Repository
 ```bash
 git clone <repository-url>
-cd aims2/Aims
 ```
 
 ### Step 2: Install Dependencies
