@@ -444,7 +444,13 @@ const AdminDashboard = () => {
                                             sx={{ cursor: 'pointer' }}
                                         >
                                             <TableCell>{fb.student?.name || 'Anonymous'}</TableCell>
-                                            <TableCell>{fb.courseInstructor || fb.courseId?.code || 'N/A'}</TableCell>
+                                            <TableCell>
+                                                {fb.courseId?.code ? `${fb.courseId.title} (${fb.courseId.code})` : 'N/A'}
+                                                <br />
+                                                <Typography variant="caption" color="textSecondary">
+                                                    Instr: {fb.courseInstructor || fb.instructorId?.name || 'Unknown'}
+                                                </Typography>
+                                            </TableCell>
                                             <TableCell><Chip label={fb.feedbackType} size="small" /></TableCell>
                                             <TableCell>{new Date(fb.createdAt).toLocaleDateString()}</TableCell>
                                             <TableCell>
@@ -506,8 +512,13 @@ const AdminDashboard = () => {
                                     <Typography variant="body1" fontWeight="bold">{selectedFeedback.student?.name || 'Anonymous'}</Typography>
                                 </Grid>
                                 <Grid item xs={6}>
-                                    <Typography variant="body2" color="textSecondary">Course</Typography>
-                                    <Typography variant="body1" fontWeight="bold">{selectedFeedback.courseInstructor || selectedFeedback.courseId?.title || 'N/A'}</Typography>
+                                    <Typography variant="body2" color="textSecondary">Course & Instructor</Typography>
+                                    <Typography variant="body1" fontWeight="bold">
+                                        {selectedFeedback.courseId?.title} ({selectedFeedback.courseId?.code})
+                                    </Typography>
+                                    <Typography variant="body2">
+                                        {selectedFeedback.courseInstructor || selectedFeedback.instructorId?.name || 'Unknown'}
+                                    </Typography>
                                 </Grid>
                                 <Grid item xs={6}>
                                     <Typography variant="body2" color="textSecondary">Submitted On</Typography>

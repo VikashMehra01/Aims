@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Course = require('../models/Course');
+const CourseRegistration = require('../models/CourseRegistration');
 const Feedback = require('../models/Feedback');
 const User = require('../models/User');
 
@@ -44,15 +45,69 @@ router.post('/courses', auth, async (req, res) => {
 // Submit Feedback
 router.post('/feedback', auth, async (req, res) => {
     try {
+        const { courseId, instructorId, feedbackType, ratings, content } = req.body;
+
+        if (!courseId) return res.status(400).json({ msg: 'courseId is required' });
+        if (!instructorId) return res.status(400).json({ msg: 'instructorId is required' });
+        if (!feedbackType) return res.status(400).json({ msg: 'feedbackType is required' });
+
+        const allowedTypes = ['Mid-sem', 'End-sem', 'Mid-Semester'];
+        if (!allowedTypes.includes(feedbackType)) {
+            return res.status(400).json({ msg: 'Invalid feedbackType' });
+        }
+
+        const course = await Course.findById(courseId).select('instructor coordinators');
+        if (!course) return res.status(404).json({ msg: 'Course not found' });
+
+        const instructorMatches =
+            String(course.instructor) === String(instructorId) ||
+            (Array.isArray(course.coordinators) && course.coordinators.some(cId => String(cId) === String(instructorId)));
+
+        if (!instructorMatches) {
+            return res.status(400).json({ msg: 'Selected instructor is not associated with this course' });
+        }
+
+        const approvedRegistration = await CourseRegistration.findOne({
+            student: req.user.id,
+            course: courseId,
+            status: 'Approved'
+        }).select('_id');
+
+        if (!approvedRegistration) {
+            return res.status(403).json({ msg: 'Feedback allowed only for approved courses' });
+        }
+
+        const existing = await Feedback.findOne({
+            student: req.user.id,
+            courseId,
+            instructorId,
+            feedbackType
+        }).select('_id');
+
+        if (existing) {
+            return res.status(409).json({ msg: 'Feedback already submitted for this instructor and type' });
+        }
+
+        const instructorUser = await User.findById(instructorId).select('name');
+
         const newFeedback = new Feedback({
-            ...req.body,
+            courseId,
+            instructorId,
+            courseInstructor: instructorUser?.name,
+            feedbackType,
+            ratings,
+            content,
             student: req.user.id
         });
+
         const feedback = await newFeedback.save();
         res.json(feedback);
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        console.error(err);
+        if (err.name === 'CastError') {
+             return res.status(400).json({ msg: 'Invalid ID format' });
+        }
+        res.status(500).json({ msg: 'Server Error occurred while processing feedback' });
     }
 });
 
@@ -61,10 +116,10 @@ router.get('/feedback/active', auth, async (req, res) => {
     try {
         // Mock logic: randomly return active or return based on a query
         // In real app, this would check dates or admin settings
-        res.json({ active: true, type: 'Mid-Semester', semester: 'Sem-1, 2024-25' });
+        res.json({ active: true, type: 'Mid-sem', semester: 'Sem-1, 2024-25' });
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server Error' });
     }
 });
 
@@ -74,11 +129,12 @@ router.get('/feedback', auth, async (req, res) => {
         const feedback = await Feedback.find()
             .populate('student', 'name email rollNumber')
             .populate('courseId', 'code title')
+            .populate('instructorId', 'name')
             .sort({ createdAt: -1 });
         res.json(feedback);
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server Error' });
     }
 });
 
@@ -95,7 +151,7 @@ router.get('/student-record', auth, async (req, res) => {
         res.json({ student: user, history: academicHistory });
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server Error' });
     }
 });
 

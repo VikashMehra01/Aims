@@ -66,7 +66,10 @@ router.get('/my-registrations', auth, async (req, res) => {
         const registrations = await CourseRegistration.find({ student: req.user.id })
             .populate({
                 path: 'course',
-                populate: { path: 'instructor', select: 'name' }
+                populate: [
+                    { path: 'instructor', select: 'name' },
+                    { path: 'coordinators', select: 'name' }
+                ]
             })
             .populate('student', 'name rollNumber');
         res.json(registrations);
