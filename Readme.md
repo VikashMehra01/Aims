@@ -6,10 +6,11 @@ AIMS (Academic Information Management System) is a comprehensive web-based platf
 
 ## Live Demo
 
-The application is deployed and accessible online:
+The application can be deployed and accessed online:
 
-- **Live Application**:https://aims-sepia.vercel.app/login
-- **Status**: ✅ Deployed on Vercel
+- **Live Application**: `https://your-app-name.vercel.app/login` (replace with your deployment URL)
+- **Platform**: Vercel (or your preferred hosting platform)
+- **Status**: Deploy to make it live
 
 ![Login Page](screenshots/login.png)
 
@@ -111,7 +112,7 @@ The application is deployed and accessible online:
 ## Project Structure
 
 ```
-Aims/
+<project-root>/
 ├── client/                      # Frontend React application
 │   ├── src/
 │   │   ├── components/          # Reusable UI components
@@ -171,6 +172,7 @@ Aims/
 ### Step 1: Clone the Repository
 ```bash
 git clone <repository-url>
+cd <project-directory>
 ```
 
 ### Step 2: Install Dependencies
@@ -190,7 +192,7 @@ Create a `.env` file in the `server/` directory:
 
 ```env
 # MongoDB Connection
-MONGO_URI=mongodb://localhost:27017/aims
+MONGO_URI=mongodb://localhost:27017/your_database_name
 
 # JWT Secret (use a strong random string)
 JWT_SECRET=your_jwt_secret_key_here
@@ -224,10 +226,11 @@ VITE_GOOGLE_CLIENT_ID=your_google_client_id
 
 ### Step 4: MongoDB Setup
 
-**Option 1: Local MongoDB**
-- Install MongoDB locally
+**Option 1: Local MongoDB** (Development Database)
+- Install MongoDB locally on your computer
 - Start MongoDB service
-- The application will connect to `mongodb://localhost:27017/aims`
+- The application will connect to `mongodb://localhost:27017/your_database_name` (replace `your_database_name` with your preferred database name)
+- ⚠️ **Note**: This is a local database - data is stored only on your machine and is not shared with others
 
 **Option 2: MongoDB Atlas**
 - Create a free MongoDB Atlas account
@@ -277,9 +280,9 @@ npm run build
 ## Accessing the Application
 
 ### Live Deployment
-- **Production URL**: https://aims-sepia.vercel.app/login
-- **Platform**: Vercel
-- **Status**: Live ✅
+- **Production URL**: `https://your-app-name.vercel.app/login` (replace with your deployment URL)
+- **Platform**: Vercel (or your preferred hosting platform)
+- **Status**: Deploy to make it live
 
 ### Local Development
 Once running locally, access the application at:
@@ -288,16 +291,16 @@ Once running locally, access the application at:
 
 ### Default User Roles
 After setting up, you can create users with different roles:
-- **Students**: Use email pattern like `student@iitrpr.ac.in`
+- **Students**: Use email pattern matching your institution's domain (e.g., `student@yourinstitution.edu`)
 - **Instructors**: Accounts with instructor role assigned by admin
 - **Faculty Advisors**: Accounts with faculty advisor role assigned by admin
 - **Admins**: First user or users with admin role
 
 ## Deployment
 
-### Deployed on Vercel
+### Deployment Options
 
-This application is deployed on Vercel with the following configuration:
+This application can be deployed on various platforms. The following example shows deployment on Vercel:
 
 #### Frontend Deployment (Vercel)
 The React frontend is deployed on Vercel with automatic deployments from the main branch.
@@ -554,9 +557,8 @@ This project is created for academic purposes as part of a course assignment.
 
 ## Author
 
-- **Name**: Aditya Gupta
-- **Institution**: IIT Ropar
-- **Course**: Academic Information Management System
+- **Project**: Academic Information Management System
+- **Purpose**: Academic course assignment
 
 ## Support
 
