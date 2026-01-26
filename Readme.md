@@ -8,7 +8,7 @@ AIMS (Academic Information Management System) is a comprehensive web-based platf
 
 The application can be deployed and accessed online:
 
-- **Live Application**: `https://your-app-name.vercel.app/login` (replace with your deployment URL)
+- **Live Application**: https://aims-sepia.vercel.app/login
 - **Platform**: Vercel (or your preferred hosting platform)
 - **Status**: Deploy to make it live
 
@@ -280,7 +280,7 @@ npm run build
 ## Accessing the Application
 
 ### Live Deployment
-- **Production URL**: `https://your-app-name.vercel.app/login` (replace with your deployment URL)
+- **Production URL**: https://aims-sepia.vercel.app/login
 - **Platform**: Vercel (or your preferred hosting platform)
 - **Status**: Deploy to make it live
 
